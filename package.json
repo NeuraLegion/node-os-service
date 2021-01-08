@@ -8,6 +8,9 @@
     "example": "example"
   },
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "nan": "2.14.x"
   },
