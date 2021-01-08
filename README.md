@@ -1,4 +1,3 @@
-
 # os-service
 
 This module implements the ability to run a [Node.js][nodejs] based JavaScript
@@ -6,38 +5,44 @@ program as a native Windows or Linux service.
 
 This module is installed using [node package manager (npm)][npm]:
 
-    # This module contains C++ source code which will be compiled
-    # during installation on Windows platforms using node-gyp.  A
-    # suitable build chain must be configured on Windows platforms
-    # before installation.
-    
-    npm install os-service
+```bash
+# This module contains C++ source code which will be compiled
+# during installation on Windows platforms using node-gyp.  A
+# suitable build chain must be configured on Windows platforms
+# before installation.
+
+npm i @neuralegion/os-service
+```
 
 It is loaded using the `require()` function:
 
-    var service = require ("os-service");
+```js
+const service = require('@neuralegion/os-service');
+```
 
 A program can then be added, removed and run as a service:
 
-    service.add ("my-service");
-    
-    service.remove ("my-service");
-    
-    service.run (function () {
-        // Stop request received (i.e. a kill signal on Linux or from the
-        // Service Control Manager on Windows), so let's stop!
-        service.stop ();
-    });
+```js
+service.add('my-service');
 
-[nodejs]: http://nodejs.org "Node.js"
-[npm]: https://npmjs.org/ "npm"
+service.remove('my-service');
+
+service.run(() => {
+  // Stop request received (i.e. a kill signal on Linux or from the
+  // Service Control Manager on Windows), so let's stop!
+  service.stop();
+});
+```
+
+[nodejs]: http://nodejs.org 'Node.js'
+[npm]: https://npmjs.org/ 'npm'
 
 # Batch Service Creation
 
 Two approaches can be taken when adding and removing services.
 
 In the first approach a program can be responsible for adding, removing and
-starting itself as a service.  This is typically achieved by supporting
+starting itself as a service. This is typically achieved by supporting
 program arguments such as `--add`, `--remove`, and `--run`, and executing the
 appropriate action.
 
@@ -45,74 +50,76 @@ The following example adds the calling program as a service when called
 with a `--add` parameter, and removes the created service when called with a
 `--remove` parameter:
 
-    if (process.argv[2] == "--add") {
-        service.add ("my-service", {programArgs: ["--run"]}, function(error){ 
-           if (error)
-              console.trace(error);
-        });
-    } else if (process.argv[2] == "--remove") {
-        service.remove ("my-service", function(error){ 
-           if (error)
-              console.trace(error);
-        });
-    } else if (process.argv[2] == "--run") {
-        service.run (function () {
-            service.stop (0);
-        });
-        
-        // Run service program code...
-    } else {
-        // Show usage...
+```js
+if (process.argv[2] == '--add') {
+  service.add('my-service', { args: [process.argv[1], '--run'] }, (error) => {
+    if (error) {
+      console.trace(error);
     }
+  });
+} else if (process.argv[2] == '--remove') {
+  service.remove('my-service', (error) => {
+    if (error) {
+      console.trace(error);
+    }
+  });
+} else if (process.argv[2] == '--run') {
+  service.run(() => service.stop(0));
+
+  // Run service program code...
+} else {
+  // Show usage...
+}
+```
 
 Note the `--run` argument passed in the `options` parameter to the
-`service.add()` function.  When the service is started using the Windows
-Service Control Manager, or the Linux service management facilities,  the first
-argument to the program will be `--run`.  The above program checks for this and
+`service.add()` function. When the service is started using the Windows
+Service Control Manager, or the Linux service management facilities, the first
+argument to the program will be `--run`. The above program checks for this and
 if specified runs as a service using the `service.run()` function.
 
 Also note that neither the node binary or the programs fully qualified path
-are specified.  These parameters are automatically calculated it not
-specified.  Refer to the `service.add()` function description for details
+are specified. These parameters are automatically calculated it not
+specified. Refer to the `service.add()` function description for details
 about how this works.
 
 In the second approach a dedicated service management program can be
-responsible for adding and removing many services in batch.  The program
+responsible for adding and removing many services in batch. The program
 adding and removing services is not a service itself, and would never call
 the `service.run()` function.
 
 The following example adds or removes number of services:
 
-    if (program.argv[2] == "--add") {
-        service.add ("service1", {programPath: "c:\example\svc1.js",
-            function(error) { 
-                if (error) {
-                    console.trace(error);
-                } else {
-                    service.add ("service2", {programPath: "c:\example\svc2.js",
-                        function(error) { 
-                            if (error) {
-                                console.trace(error);
-                            }
-                        });
-                }
-            });
+```js
+if (program.argv[2] == '--add') {
+  service.add('service1', { args: ['c:examplesvc1.js'] }, (error) => {
+    if (error) {
+      console.trace(error);
     } else {
-        service.remove ("service2", function(error) { 
-            if (error) {
-                console.trace(error);
-            } else {
-                service.remove ("service1", function(error) { 
-                    if (error) {
-                        console.trace(error);
-                    }
-                });
-            }
-        });
+      service.add('service2', { args: 'c:examplesvc2.js' }, (error) => {
+        if (error) {
+          console.trace(error);
+        }
+      });
     }
+  });
+} else {
+  service.remove('service2', (error) => {
+    if (error) {
+      console.trace(error);
+    } else {
+      service.remove('service1', (error) => {
+        if (error) {
+          console.trace(error);
+        }
+      });
+    }
+  });
+}
+```
 
 Note that unlike the previous example the `--run` argument is not passed in
-the `options` parameter to the `service.add()` function.  Since each service
+the `options` parameter to the `service.add()` function. Since each service
 program does not add or remove itself as a service it only needs to run, and
 as such does not need to be told to so.
 
@@ -124,11 +131,11 @@ program adding the services.
 Each of the service programs can simply start themselves as services using the
 following code:
 
-    service.run (function () {
-        service.stop (0);
-    });
-    
-    // Run service program code...
+```js
+service.run(() => service.stop(0));
+
+// Run service program code...
+```
 
 # Running Service Programs
 
@@ -138,9 +145,9 @@ Control Manager, or the Linux service management facilities.
 
 On Windows, when the `service.run()` function is called this module will
 attempt to connect to the Windows Service Control Manager so that control
-requests can be received - so that the service can be stopped.  When starting a
+requests can be received - so that the service can be stopped. When starting a
 program at the console an attempt to connect to the Windows Service Control
-Manager will fail.  In this case the `service.run()` function will assume the
+Manager will fail. In this case the `service.run()` function will assume the
 program is running at the console and silently ignore this error.
 
 On Linux, services started at the console will run in the foreground, this
@@ -157,7 +164,7 @@ with no change.
 # Current Working Directory
 
 Upon starting the current working directory of a service program will be
-platform specific the , e.g. the `"%windir%\system32"` directory on Windows.
+platform specific, e.g. the `"%windir%\system32"` directory on Windows.
 Service programs need to consider this when working with relative directory and
 file paths.
 
@@ -173,45 +180,39 @@ platforms - at least the API is exactly the same for both platforms both from
 a service management and service running perspective.
 
 On Windows platforms the Windows Service Control Manager WIN32 API is used to
-manage services.  On Linux platforms a `systemd` unit is created if it is
-available, otherwise the `chkconfig` command is used.  If `chkconfig` is not
+manage services. On Linux platforms a `systemd` unit is created if it is
+available, otherwise the `chkconfig` command is used. If `chkconfig` is not
 available the `update-rc.d` command is tried instead.
 
 ## service.add (name, [options], cb)
 
 The `add()` function adds a service.
 
-The `name` parameter specifies the name of the created service.  The optional
+The `name` parameter specifies the name of the created service. The optional
 `options` parameter is an object, and can contain the following items:
 
- * `displayName` - The services display name, defaults to the `name` parameter
+- `displayName` - The services display name, defaults to the `name` parameter
    - this parameter will be used on Windows platforms only
- * `nodePath` - The fully qualified path to the node binary used to run the
-   service (i.e. `c:\Program Files\nodejs\node.exe`, defaults to the value of
-   `process.execPath`
- * `nodeArgs` - An array of strings specifying parameters to pass to
-   `nodePath`, defaults to `[]`
- * `programPath` - The program to run using `nodePath`, defaults to the value
-   of `process.argv[1]`
- * `programArgs` - An array of strings specifying parameters to pass to
-   `programPath`, defaults to `[]`
- * `runLevels` - An array of numbers specifying Linux run-levels at which
-   the service should be started for Linux platforms, defaults to
-   `[2, 3, 4, 5]`, this is only used when `chkconfig` or `update-rc.d` is used
-	to install a service
- * `username` - For Windows platforms a username and password can be specified,
-   the service will be run using these credentials when started, see the
-   `CreateService()` functions [win32 API documentation][createservice] for
-   details on the format of the username, on all other platforms this parameter
-   is ignored
- * `password` - See the `username` parameter
- * `systemdWantedBy` - For when systemd will be used a target can be specified
-   for the `WantedBy` attribute under the `[Install]` section in the generated
-   systemd unit file, defaults to `multi-user.target`
- * `dependencies` - AN array of strings specifying other services this service
-   depends on, this is optional
+- `command` - The command used to run the service (i.e. `c:\Program Files\nodejs\node.exe`,
+  defaults to the value of `process.execPath`
+- `args` - An array of strings specifying parameters, defaults to `[]`
+- `runLevels` - An array of numbers specifying Linux run-levels at which
+  the service should be started for Linux platforms, defaults to
+  `[2, 3, 4, 5]`, this is only used when `chkconfig` or `update-rc.d` is used
+  to install a service
+- `username` - For Windows platforms a username and password can be specified,
+  the service will be run using these credentials when started, see the
+  `CreateService()` functions [win32 API documentation][createservice] for
+  details on the format of the username, on all other platforms this parameter
+  is ignored
+- `password` - See the `username` parameter
+- `systemdWantedBy` - For when systemd will be used a target can be specified
+  for the `WantedBy` attribute under the `[Install]` section in the generated
+  systemd unit file, defaults to `multi-user.target`
+- `dependencies` - An array of strings specifying other services this service
+  depends on, this is optional
 
-[createservice]: https://msdn.microsoft.com/en-us/library/windows/desktop/ms682450(v=vs.85).aspx "CreateService()"
+[createservice]: https://msdn.microsoft.com/en-us/library/windows/desktop/ms682450(v=vs.85).aspx 'CreateService()'
 
 The service will be set to automatically start at boot time, but not started.
 The service can be started using the `net start "my-service"` command on
@@ -220,54 +221,60 @@ Windows and `service my-service start` on Linux.
 The `cb` callback function is called once the service has been added. The
 following arguments will be passed to the callback function:
 
- * `error` - Instance of the `Error` class, or `null` if no error occurred
+- `error` - Instance of the `Error` class, or `null` if no error occurred
 
 The following example installs a service named `my-service`, it explicitly
 specifies the services display name, and specifies a number of parameters to
 the program:
 
-    var options = {
-        displayName: "MyService",
-        programArgs: ["--server-port", 8888],
-        username: ".\Stephen Vickers",
-        password: "MyPassword :)"
-    };
-    
-    service.add ("my-service", options, function(error) {
-        if (error)
-            console.trace(error);
-    });
+```js
+const options = {
+  displayName: 'MyService',
+  args: [process.argv[1], '--server-port', 8888],
+  username: '.Stephen Vickers',
+  password: 'MyPassword :)'
+};
+
+service.add('my-service', options, (error) => {
+  if (error) {
+    console.trace(error);
+  }
+});
+```
 
 ## service.remove (name, cb)
 
 The `remove()` function removes a service.
 
-The `name` parameter specifies the name of the service to remove.  This will
+The `name` parameter specifies the name of the service to remove. This will
 be the same `name` parameter specified when adding the service.
 
-The service must be in a stopped state for it to be removed.  The
+The service must be in a stopped state for it to be removed. The
 `net stop "my-service"` command can be used to stop the service on Windows and
 the `service my-service stop` on Linux before it is to be removed.
 
 The `cb` callback function is called once the service has been removed. The
 following arguments will be passed to the callback function:
 
- * `error` - Instance of the `Error` class, or `null` if no error occurred
+- `error` - Instance of the `Error` class, or `null` if no error occurred
 
 The following example removes the service named `my-service`:
 
-    service.remove ("my-service", function(error) {
-        if (error)
-            console.trace(error);
-    });
+```js
+service.remove('my-service', (error) => {
+  if (error) {
+    console.trace(error);
+  }
+});
+```
 
 ## service.run (callback)
 
 The `run()` function will attempt to run the program as a service.
 
 **NOTE** When run the service will NOT make any changes to the `process.stdout`
-and `process.stderr` streams.  Users are required to utilise whatever logging
-modules they require to managing process logging and its destination.  Older
+and `process.stderr` streams. Users are required to utilise whatever logging
+modules they require to managing process logging and its destination. Older
 versions of this module (versions before 2.0.0) would support re-directing
 these streams to a specific writeable stream, support for that was removed in
 version 2.0.0.
@@ -280,10 +287,10 @@ The program should perform cleanup tasks and then call the `service.stop()`
 function.
 
 The following example starts a program as a service:
-    
-    service.run (function () {
-        service.stop ();
-    });
+
+```js
+service.run(() => service.stop(0));
+```
 
 ## service.stop ([rcode])
 
@@ -292,7 +299,7 @@ to exit.
 
 Once the service has been stopped this function will terminate the program by
 calling the `process.exit()` function, passing to it the `rcode` parameter
-which defaults to `0`.  Before calling this function ensure the program has
+which defaults to `0`. Before calling this function ensure the program has
 finished performing cleanup tasks.
 
 **BE AWARE, THIS FUNCTION WILL NOT RETURN.**
@@ -300,98 +307,17 @@ finished performing cleanup tasks.
 The following example stops the calling program specifying a return code of
 `0`, the function will not return:
 
-    service.run (function () {
-        service.stop (0);
-    });
+```js
+service.run(() => service.stop(0));
+```
 
 # Example Programs
 
 Example programs are included under the modules `example` directory.
 
-# Changes
-
-## Version 1.0.0 - 30/12/2014
-
- * Initial release
-
-## Version 1.0.1 - 03/03/2015
-
- * Support Linux platforms which don't have the start-stop-daemon program
- 
-## Version 1.0.2 - 30/03/2015
-
- * Linux start/stop link under `/etc/rcN.d` directories are not removed
-
-## Version 1.0.3 - 22/09/2015
-
- * Host repository on GitHub
-
-## Version 1.1.0 - 09/10/2015
-
- * Migrate C++ addon code to use the Native Abstractions for Node framework
- * Add missing shebang line '#!' to start/stop script template
- * Not possible to specify run levels for Linux start/stop script (added new
-   `runLevels` item to the `options` parameter to the `add()` function
-
-## Version 1.1.1 - 08/02/2016
-
- * Remove extraneous semicolon from the README.md file
-
-## Version 1.2.0 - 29/02/2016
-
- * On Windows platforms allow users to specify a username/password with which
-   a service should be run, the `username` and `password` options parameters
-   were added to the `add()` function
-
-## Version 1.3.0 - 15/05/2016
-
- * Require nan 2.3.x to support node version 6
-
-## Version 1.4.0 - 20/03/2017
-
- * Support Linux systemd
-
-## Version 1.4.1 - 27/03/2017
-
- * The systemd install doesn't work because of typo in directory name in
-   index.js
-
-## Version 1.4.2 - 14/07/2017
-
- * Service not automatically started on boot when under the systemd service
-   (added `WantedBy` attribute to generated systemd unit)
- * Umask not set in system 5 init script
-
-## Version 1.5.0 - 06/01/2018
-
- * Address warnings for 'v8::Value::ToUint32 was declared deprecated'
- * Override the stdout/stderr handles instead of using the deprecated
-   `__defineGetter__()` function
- * Specify dependancies when adding a service
-
-## Version 2.0.0 - 12/02/2018
-
- * Remove support to override stdout/stderr with a logstream (let users use
-   their required/own logging modules) - the run() function now only accepts
-   one argument whereas previously this was either two or three
-
-## Version 2.1.0 - 02/05/2018
-
- * Support Node.js 10
-
-## Version 2.1.2 - 06/06/2018
-
- * Set NoSpaceships Ltd to be the owner and maintainer
-
-## Version 2.1.3 - 07/06/2018
-
- * Remove redundant sections from README.md
-
-## Version 2.2.0 - 02/01/2020
-
- * Support Node.js 12.x
-
 # License
+
+Copyright (c) 2021 NeuraLegion <artem.derevnjuk@neuralegion.com>
 
 Copyright (c) 2018 NoSpaceships Ltd <hello@nospaceships.com>
 

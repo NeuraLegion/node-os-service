@@ -1,13 +1,25 @@
 {
-  "name": "os-service",
-  "version": "2.2.0",
+  "name": "@neuralegion/os-service",
+  "version": "0.0.0",
   "description": "Run Node.JS programs as native Operating System Services.",
   "main": "index.js",
+  "types": "index.d.ts",
   "directories": {
     "example": "example"
   },
+  "private": false,
   "dependencies": {
     "nan": "2.14.x"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
   },
   "contributors": [
     {
@@ -17,11 +29,18 @@
     {
       "name": "NoSpaceships Ltd",
       "email": "hello@nospaceships.com"
+    },
+    {
+      "name": "Artem Derevnjuk",
+      "email": "artem.derevnjuk@neuralegion.com"
     }
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/nospaceships/node-os-service.git"
+    "url": "git+https://github.com/NeuraLegion/node-os-service.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NeuraLegion/node-os-service/issues"
   },
   "keywords": [
     "background-process",
@@ -35,5 +54,14 @@
     "windows-service"
   ],
   "author": "NoSpaceships Ltd <hello@nospaceships.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/cli": "^11.0.0",
+    "@commitlint/config-conventional": "^11.0.0",
+    "husky": "^4.3.7",
+    "semantic-release": "^17.3.1"
+  },
+  "scripts": {
+    "semantic-release": "semantic-release"
+  }
 }

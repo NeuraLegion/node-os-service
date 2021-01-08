@@ -1,13 +1,13 @@
+'use strict';
 
-var child_process = require("child_process");
-var fs = require("fs");
-var os = require("os");
-var util = require ("util");
+const child_process = require('child_process');
+const fs = require('fs');
+const os = require('os');
 
-var serviceWrap;
-var runInitialised = false;
+let serviceWrap;
+let runInitialised = false;
 
-var linuxStartStopScript = [
+const linuxStartStopScript = [
 	'#!/bin/bash',
 	'',
 	'### BEGIN INIT INFO',
@@ -24,10 +24,11 @@ var linuxStartStopScript = [
 	'# description: ##NAME##',
 	'',
 	'umask 0007',
+	'pidfile="/var/run/##NAME##.pid"',
 	'',
 	'set_pid () {',
 	'	unset PID',
-	'	_PID=`head -1 "##PROGRAM_PATH##.pid" 2>/dev/null`',
+	'	_PID=`head -1 $pidfile 2>/dev/null`',
 	'	if [ $_PID ]; then',
 	'		kill -0 $_PID 2>/dev/null && PID=$_PID',
 	'	fi',
@@ -51,9 +52,9 @@ var linuxStartStopScript = [
 	'	if [ -z "$PID" ]; then',
 	'		echo starting ##NAME##',
 	'',
-	'		"##NODE_PATH##" ##NODE_ARGS## "##PROGRAM_PATH##" ##PROGRAM_ARGS## >/dev/null 2>&1 &',
+	'		##COMMAND## >/dev/null 2>&1 &',
 	'',
-	'		echo $! > "##PROGRAM_PATH##.pid"',
+	'		echo $! > $pidfile',
 	'',
 	'		while [ : ]; do',
 	'			set_pid',
@@ -100,7 +101,7 @@ var linuxStartStopScript = [
 	'			set_pid',
 	'',
 	'			if [ -z "$PID" ]; then',
-	'				rm "##PROGRAM_PATH##.pid"',
+	'				rm $pidfile',
 	'				echo stopped ##NAME##',
 	'				break',
 	'			else',
@@ -141,7 +142,7 @@ var linuxStartStopScript = [
 	'esac'
 ];
 
-var linuxSystemUnit = [
+const linuxSystemUnit = [
 	'[Unit]',
 	'Description=##NAME##',
 	'After=network.target',
@@ -152,32 +153,34 @@ var linuxSystemUnit = [
 	'StandardOutput=null',
 	'StandardError=null',
 	'UMask=0007',
-	'ExecStart=##NODE_PATH## ##NODE_ARGS## ##PROGRAM_PATH## ##PROGRAM_ARGS##',
+	'ExecStart=##COMMAND##',
 	'',
 	'[Install]',
 	'WantedBy=##SYSTEMD_WANTED_BY##'
 ];
 
-function getServiceWrap () {
-	if (! serviceWrap)
-		serviceWrap = require ("./build/Release/service");
+function getServiceWrap() {
+	if (!serviceWrap) {
+		serviceWrap = require('./build/Release/service');
+	}
+
 	return serviceWrap;
 }
 
 function runProcess(path, args, cb) {
-	var child = child_process.spawn(path, args);
+	const child = child_process.spawn(path, args);
 
-	child.on("exit", function(code) {
+	child.on('exit', (code) => {
 		if (code != 0) {
-			var error = new Error(path + " failed: " + code)
-			error.code = code
+			const error = new Error(path + ' failed: ' + code);
+			error.code = code;
 			cb(error);
 		} else {
 			cb();
 		}
 	});
 
-	child.on("error", function(error) {
+	child.on('error', (error) => {
 		if (error) {
 			cb(error);
 		} else {
@@ -186,281 +189,272 @@ function runProcess(path, args, cb) {
 	});
 }
 
-function add (name, options, cb) {
-	if (! cb) {
+function add(name, options, cb) {
+	if (!cb) {
 		cb = arguments[1];
 		options = {};
 	}
 
-	var nodePath = (options && options.nodePath)
-			? options.nodePath
-			: process.execPath;
+	const command =
+		options && options.command ? options.command : process.execPath;
 
-	var programPath = (options && options.programPath)
-			? options.programPath
-			: process.argv[1];
+	const username = options ? options.username || null : null;
+	const password = options ? options.password || null : null;
 
-	var username = options ? (options.username || null) : null;
-	var password = options ? (options.password || null) : null;
+	const serviceArgs = [];
 
-	if (os.platform() == "win32") {
-		var displayName = (options && options.displayName)
-				? options.displayName
-				: name;
-		
-		var serviceArgs = [];
+	serviceArgs.push(command);
 
-		serviceArgs.push (nodePath);
+	if (options && options.args) {
+		for (let i = 0; i < options.args.length; i++) {
+			serviceArgs.push(options.args[i]);
+		}
+	}
 
-		if (options && options.nodeArgs)
-			for (var i = 0; i < options.nodeArgs.length; i++)
-				serviceArgs.push (options.nodeArgs[i]);
+	for (let i = 0; i < serviceArgs.length; i++) {
+		serviceArgs[i] = '"' + serviceArgs[i] + '"';
+	}
 
-		serviceArgs.push (programPath);
-	
-		if (options && options.programArgs)
-			for (var i = 0; i < options.programArgs.length; i++)
-				serviceArgs.push (options.programArgs[i]);
-	
-		for (var i = 0; i < serviceArgs.length; i++)
-			serviceArgs[i] = "\"" + serviceArgs[i] + "\"";
-	
-		var servicePath = serviceArgs.join (" ");
+	const servicePath = serviceArgs.join(' ');
 
-		deps = options.dependencies
-				? options.dependencies.join("\0") + "\0\0"
-				: ""
+	if (os.platform() == 'win32') {
+		const displayName =
+			options && options.displayName ? options.displayName : name;
+
+		const deps = options.dependencies ? options.dependencies.join('\0') + '\0\0' : '';
 
 		try {
-			getServiceWrap ().add (name, displayName, servicePath, username,
-					password, deps);
+			getServiceWrap().add(
+				name,
+				displayName,
+				servicePath,
+				username,
+				password,
+				deps
+			);
 			cb();
 		} catch (error) {
 			cb(error);
 		}
 	} else {
-		var nodeArgs = [];
-		if (options && options.nodeArgs)
-			for (var i = 0; i < options.nodeArgs.length; i++)
-				nodeArgs.push ("\"" + options.nodeArgs[i] + "\"");
-
-		var programArgs = [];
-		if (options && options.programArgs)
-			for (var i = 0; i < options.programArgs.length; i++)
-				programArgs.push ("\"" + options.programArgs[i] + "\"");
-		
-		var runLevels = [2, 3, 4, 5];
-		if (options && options.runLevels)
+		let runLevels = [2, 3, 4, 5];
+		if (options && options.runLevels) {
 			runLevels = options.runLevels;
+		}
 
-		var nodeArgsStr = nodeArgs.join(" ");
-		var programArgsStr = programArgs.join(" ");
+		const deps =
+			options && options.dependencies ? options.dependencies.join(' ') : '';
 
-		var deps = (options && options.dependencies)
-				? options.dependencies.join(" ")
-				: ""
-
-		var initPath = "/etc/init.d/" + name;
-		var systemPath = "/usr/lib/systemd/system/" + name + ".service";
-		var ctlOptions = {
+		const initPath = '/etc/init.d/' + name;
+		const systemPath = '/usr/lib/systemd/system/' + name + '.service';
+		const ctlOptions = {
 			mode: 493 // rwxr-xr-x
 		};
-				
-		fs.stat("/usr/lib/systemd/system", function(error, stats) {
-			if (error) {
-				if (error.code == "ENOENT") {
-					var startStopScript = [];
 
-					for (var i = 0; i < linuxStartStopScript.length; i++) {
-						var line = linuxStartStopScript[i];
-						
-						line = line.replace("##NAME##", name);
-						line = line.replace("##NODE_PATH##", nodePath);
-						line = line.replace("##NODE_ARGS##", nodeArgsStr);
-						line = line.replace("##PROGRAM_PATH##", programPath);
-						line = line.replace("##PROGRAM_ARGS##", programArgsStr);
-						line = line.replace("##RUN_LEVELS_ARR##", runLevels.join(" "));
-						line = line.replace("##RUN_LEVELS_STR##", runLevels.join(""));
-						line = line.replace("##DEPENDENCIES##", deps);
-						
+		fs.stat('/usr/lib/systemd/system', (error) => {
+			if (error) {
+				if (error.code == 'ENOENT') {
+					const startStopScript = [];
+
+					for (let i = 0; i < linuxStartStopScript.length; i++) {
+						let line = linuxStartStopScript[i];
+
+						line = line.replace('##NAME##', name);
+						line = line.replace('##COMMAND##', servicePath);
+						line = line.replace('##RUN_LEVELS_ARR##', runLevels.join(' '));
+						line = line.replace('##RUN_LEVELS_STR##', runLevels.join(''));
+						line = line.replace('##DEPENDENCIES##', deps);
+
 						startStopScript.push(line);
 					}
-					
-					var startStopScriptStr = startStopScript.join("\n");
 
-					fs.writeFile(initPath, startStopScriptStr, ctlOptions, function(error) {
+					const startStopScriptStr = startStopScript.join('\n');
+
+					fs.writeFile(initPath, startStopScriptStr, ctlOptions, (error) => {
 						if (error) {
-							cb(new Error("writeFile(" + initPath + ") failed: " + error.message));
+							cb(
+								new Error(
+									'writeFile(' + initPath + ') failed: ' + error.message
+								)
+							);
 						} else {
-							runProcess("chkconfig", ["--add", name], function(error) {
+							runProcess('chkconfig', ['--add', name], (error) => {
 								if (error) {
-									if (error.code == "ENOENT") {
-										runProcess("update-rc.d", [name, "defaults"], function(error) {
+									if (error.code == 'ENOENT') {
+										runProcess('update-rc.d', [name, 'defaults'], (error) => {
 											if (error) {
-												cb(new Error("update-rd.d failed: " + error.message));
+												cb(new Error('update-rd.d failed: ' + error.message));
 											} else {
-												cb()
+												cb();
 											}
-										})
+										});
 									} else {
-										cb(new Error("chkconfig failed: " + error.message));
+										cb(new Error('chkconfig failed: ' + error.message));
 									}
 								} else {
-									cb()
+									cb();
 								}
-							})
+							});
 						}
-					})
+					});
 				} else {
-					cb(new Error("stat(/usr/lib/systemd/system) failed: " + error.message));
+					cb(
+						new Error('stat(/usr/lib/systemd/system) failed: ' + error.message)
+					);
 				}
 			} else {
-				var systemUnit = [];
+				const systemUnit = [];
 
-				var systemdWantedBy = "multi-user.target"
-				if (options && options.systemdWantedBy)
-					systemdWantedBy = options.systemdWantedBy
+				let systemdWantedBy = 'multi-user.target';
+				if (options && options.systemdWantedBy) {
+					systemdWantedBy = options.systemdWantedBy;
+				}
 
 				for (var i = 0; i < linuxSystemUnit.length; i++) {
 					var line = linuxSystemUnit[i];
-					
-					line = line.replace("##NAME##", name);
-					line = line.replace("##NODE_PATH##", nodePath);
-					line = line.replace("##NODE_ARGS##", nodeArgsStr);
-					line = line.replace("##PROGRAM_PATH##", programPath);
-					line = line.replace("##PROGRAM_ARGS##", programArgsStr);
-					line = line.replace("##SYSTEMD_WANTED_BY##", systemdWantedBy);
-					line = line.replace("##DEPENDENCIES##", deps);
-					
+
+					line = line.replace('##NAME##', name);
+					line = line.replace('##COMMAND##', servicePath);
+					line = line.replace('##SYSTEMD_WANTED_BY##', systemdWantedBy);
+					line = line.replace('##DEPENDENCIES##', deps);
+
 					systemUnit.push(line);
 				}
-				
-				var systemUnitStr = systemUnit.join("\n");
 
-				fs.writeFile(systemPath, systemUnitStr, ctlOptions, function(error) {
+				const systemUnitStr = systemUnit.join('\n');
+
+				fs.writeFile(systemPath, systemUnitStr, ctlOptions, (error) => {
 					if (error) {
-						cb(new Error("writeFile(" + systemPath + ") failed: " + error.message));
+						cb(
+							new Error(
+								'writeFile(' + systemPath + ') failed: ' + error.message
+							)
+						);
 					} else {
-						runProcess("systemctl", ["enable", name], function(error) {
+						runProcess('systemctl', ['enable', name], (error) => {
 							if (error) {
-								cb(new Error("systemctl failed: " + error.message));
+								cb(new Error('systemctl failed: ' + error.message));
 							} else {
-								cb()
+								cb();
 							}
-						})
+						});
 					}
-				})
+				});
 			}
-		})
+		});
 	}
-	
+
 	return this;
 }
 
-function isStopRequested () {
-	return getServiceWrap ().isStopRequested ();
+function isStopRequested() {
+	return getServiceWrap().isStopRequested();
 }
 
-function remove (name, cb) {
-	if (os.platform() == "win32") {
+function remove(name, cb) {
+	if (os.platform() == 'win32') {
 		try {
-			getServiceWrap ().remove (name);
+			getServiceWrap().remove(name);
 			cb();
 		} catch (error) {
 			cb(error);
 		}
 	} else {
-		var initPath = "/etc/init.d/" + name;
-		var systemDir = "/usr/lib/systemd/system"
-		var systemPath = systemDir + "/" + name + ".service";
+		const initPath = '/etc/init.d/' + name;
+		const systemDir = '/usr/lib/systemd/system';
+		const systemPath = systemDir + '/' + name + '.service';
 
 		function removeCtlPaths() {
-			fs.unlink(initPath, function(error) {
+			fs.unlink(initPath, (error) => {
 				if (error) {
-					if (error.code == "ENOENT") {
-						fs.unlink(systemPath, function(error) {
+					if (error.code == 'ENOENT') {
+						fs.unlink(systemPath, (error) => {
 							if (error) {
-								cb(new Error("unlink(" + systemPath + ") failed: " + error.message))
+								cb(
+									new Error(
+										'unlink(' + systemPath + ') failed: ' + error.message
+									)
+								);
 							} else {
-								cb()
+								cb();
 							}
 						});
 					} else {
-						cb(new Error("unlink(" + initPath + ") failed: " + error.message))
+						cb(new Error('unlink(' + initPath + ') failed: ' + error.message));
 					}
 				} else {
-					cb()
+					cb();
 				}
 			});
-		};
+		}
 
-		fs.stat(systemDir, function(error, stats) {
+		fs.stat(systemDir, (error) => {
 			if (error) {
-				if (error.code == "ENOENT") {
-					runProcess("chkconfig", ["--del", name], function(error) {
+				if (error.code == 'ENOENT') {
+					runProcess('chkconfig', ['--del', name], (error) => {
 						if (error) {
-							if (error.code == "ENOENT") {
-								runProcess("update-rc.d", [name, "remove"], function(error) {
+							if (error.code == 'ENOENT') {
+								runProcess('update-rc.d', [name, 'remove'], (error) => {
 									if (error) {
-										cb(new Error("update-rc.d failed: " + error.message));
+										cb(new Error('update-rc.d failed: ' + error.message));
 									} else {
-										removeCtlPaths()
+										removeCtlPaths();
 									}
 								});
 							} else {
-								cb(new Error("chkconfig failed: " + error.message));
+								cb(new Error('chkconfig failed: ' + error.message));
 							}
 						} else {
-							removeCtlPaths()
+							removeCtlPaths();
 						}
-					})
+					});
 				} else {
-					cb(new Error("stat(" + systemDir + ") failed: " + error.message));
+					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
 				}
 			} else {
-				runProcess("systemctl", ["disable", name], function(error) {
+				runProcess('systemctl', ['disable', name], (error) => {
 					if (error) {
-						cb(new Error("systemctl failed: " + error.message));
+						cb(new Error('systemctl failed: ' + error.message));
 					} else {
-						removeCtlPaths()
+						removeCtlPaths();
 					}
-				})
+				});
 			}
-		})
+		});
 	}
 }
 
-function run (stopCallback) {
-	if (! runInitialised) {
-		if (os.platform() == "win32") {
-			setInterval (function () {
-				if (isStopRequested ()) {
-					stopCallback ();
+function run(stopCallback) {
+	if (!runInitialised) {
+		if (os.platform() == 'win32') {
+			setInterval(() => {
+				if (isStopRequested()) {
+					stopCallback();
 				}
 			}, 2000);
 		} else {
-			process.on("SIGINT", function() {
-				stopCallback ();
+			process.on('SIGINT', () => {
+				stopCallback();
 			});
 
-			process.on("SIGTERM", function() {
-				stopCallback ();
+			process.on('SIGTERM', () => {
+				stopCallback();
 			});
 		}
-		
+
 		runInitialised = true;
 	}
-	
-	if (os.platform() == "win32") {
-		getServiceWrap ().run ();
+
+	if (os.platform() == 'win32') {
+		getServiceWrap().run();
 	}
 }
 
-function stop (rcode) {
-	if (os.platform() == "win32") {
-		getServiceWrap ().stop (rcode);
+function stop(rcode) {
+	if (os.platform() == 'win32') {
+		getServiceWrap().stop(rcode);
 	}
-	process.exit (rcode || 0);
+	process.exit(rcode || 0);
 }
 
 exports.add = add;
