@@ -1,5 +1,5 @@
 syntax: glob
+.idea
 build
-example/*.log
 node_modules/
-package-lock.json
+example/*.log
