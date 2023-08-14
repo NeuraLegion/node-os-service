@@ -272,7 +272,7 @@ function add(name, options, cb) {
 			options && options.dependencies ? options.dependencies.join(' ') : '';
 
 		const initPath = join('/etc/init.d/', name);
-		const systemPath = join('/usr/lib/systemd/system/', + name + '.service');
+		const systemPath = join('/usr/lib/systemd/system/', name + '.service');
 		const ctlOptions = {
 			mode: 493 // rwxr-xr-x
 		};
