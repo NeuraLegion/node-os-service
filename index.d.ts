@@ -75,6 +75,29 @@ export function add(name: string, callback?: (error?: Error) => void): void;
 export function remove(name: string, callback: (error?: Error) => void): void;
 
 /**
+ * The enable() function enable a service.
+ * The service must be in a stopped state for it to be enabled.
+ * @param name Specifies the name of the service to enable.
+ * This will be the same name parameter specified when adding the service.
+ * @param callback Is called once the service has been enabled. The following
+ * arguments will be passed to the callback function:
+ * error - Instance of the Error class, or null if no error occurred
+ */
+export function enable(name: string, callback: (error?: Error) => void): void;
+
+/**
+ * The disable() function disable a service.
+ * The service must be in a running state for it to be disabled.
+ * @param name Specifies the name of the service to disable.
+ * This will be the same name parameter specified when adding the service.
+ * @param callback Is called once the service has been disabled. The following
+ * arguments will be passed to the callback function:
+ * error - Instance of the Error class, or null if no error occurred
+ */
+export function disable(name: string, callback: (error?: Error) => void): void;
+
+
+/**
  * The run() function will attempt to run the program as a service.
  * @param stopCallback Will be called when the service receives a stop request,
  * e.g. because the Windows Service Controller was used to send a stop request to the service,

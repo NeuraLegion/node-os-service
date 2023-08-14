@@ -1,11 +1,17 @@
 'use strict';
 
-const child_process = require('child_process');
-const fs = require('fs');
 const os = require('os');
+const {join, resolve, dirname} = require('path')
+const {exec} = require('child_process')
+const {build} = require('plist')
+const {stat, unlink, exists, mkdir, writeFile} = require('fs')
+
+const platform = os.platform();
+const homedir = os.homedir();
 
 let serviceWrap;
 let runInitialised = false;
+let interval;
 
 const linuxStartStopScript = [
 	'#!/bin/bash',
@@ -149,7 +155,8 @@ const linuxSystemUnit = [
 	'Requires=##DEPENDENCIES##',
 	'',
 	'[Service]',
-	'Type=simple',
+	'WorkingDirectory=##CWD##',
+	'Restart=always',
 	'StandardOutput=null',
 	'StandardError=null',
 	'UMask=0007',
@@ -167,28 +174,6 @@ function getServiceWrap() {
 	return serviceWrap;
 }
 
-function runProcess(path, args, cb) {
-	const child = child_process.spawn(path, args);
-
-	child.on('exit', (code) => {
-		if (code != 0) {
-			const error = new Error(path + ' failed: ' + code);
-			error.code = code;
-			cb(error);
-		} else {
-			cb();
-		}
-	});
-
-	child.on('error', (error) => {
-		if (error) {
-			cb(error);
-		} else {
-			cb();
-		}
-	});
-}
-
 function add(name, options, cb) {
 	if (!cb) {
 		cb = arguments[1];
@@ -197,6 +182,8 @@ function add(name, options, cb) {
 
 	const command =
 		options && options.command ? options.command : process.execPath;
+
+	const cwd = command ? dirname(command) : homedir
 
 	const username = options ? options.username || null : null;
 	const password = options ? options.password || null : null;
@@ -211,16 +198,17 @@ function add(name, options, cb) {
 		}
 	}
 
-	for (let i = 0; i < serviceArgs.length; i++) {
-		serviceArgs[i] = '"' + serviceArgs[i] + '"';
+	if (platform !== 'darwin') {
+		for (let i = 0; i < serviceArgs.length; i++) {
+			serviceArgs[i] = '"' + serviceArgs[i] + '"';
+		}
 	}
 
 	const servicePath = serviceArgs.join(' ');
+	const displayName =
+		options && options.displayName ? options.displayName : name;
 
-	if (os.platform() == 'win32') {
-		const displayName =
-			options && options.displayName ? options.displayName : name;
-
+	if (platform == 'win32') {
 		const deps = options.dependencies ? options.dependencies.join('\0') + '\0\0' : '';
 
 		try {
@@ -236,6 +224,44 @@ function add(name, options, cb) {
 		} catch (error) {
 			cb(error);
 		}
+	} else if (platform == 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents')
+		const plist = resolve(join(root, name + '.plist'))
+
+		const tpl = {
+			Title: displayName,
+			Label: name,
+			ProgramArguments: serviceArgs,
+			RunAtLoad: true,
+			KeepAlive: true,
+			WorkingDirectory: cwd
+		}
+
+		const data = build(tpl).toString();
+
+		const createPlist = function (path, data, cb) {
+			writeFile(path, data, function (err) {
+				if (err) {
+					return cb(err);
+				}
+
+				cb();
+			});
+		}
+
+		exists(dirname(plist), function (exists) {
+			if (!exists) {
+				mkdir(dirname(plist), {recursive: true}, function (err) {
+					if (err) {
+						return cb(err);
+					}
+
+					createPlist(plist, data, cb);
+				})
+			} else {
+				createPlist(plist, data, cb);
+			}
+		});
 	} else {
 		let runLevels = [2, 3, 4, 5];
 		if (options && options.runLevels) {
@@ -245,13 +271,13 @@ function add(name, options, cb) {
 		const deps =
 			options && options.dependencies ? options.dependencies.join(' ') : '';
 
-		const initPath = '/etc/init.d/' + name;
-		const systemPath = '/usr/lib/systemd/system/' + name + '.service';
+		const initPath = join('/etc/init.d/', name);
+		const systemPath = join('/usr/lib/systemd/system/', + name + '.service');
 		const ctlOptions = {
 			mode: 493 // rwxr-xr-x
 		};
 
-		fs.stat('/usr/lib/systemd/system', (error) => {
+		stat('/usr/lib/systemd/system', function (error) {
 			if (error) {
 				if (error.code == 'ENOENT') {
 					const startStopScript = [];
@@ -264,13 +290,14 @@ function add(name, options, cb) {
 						line = line.replace('##RUN_LEVELS_ARR##', runLevels.join(' '));
 						line = line.replace('##RUN_LEVELS_STR##', runLevels.join(''));
 						line = line.replace('##DEPENDENCIES##', deps);
+						line = line.replace('##CWD##', cwd);
 
 						startStopScript.push(line);
 					}
 
 					const startStopScriptStr = startStopScript.join('\n');
 
-					fs.writeFile(initPath, startStopScriptStr, ctlOptions, (error) => {
+					writeFile(initPath, startStopScriptStr, ctlOptions, function (error) {
 						if (error) {
 							cb(
 								new Error(
@@ -278,10 +305,10 @@ function add(name, options, cb) {
 								)
 							);
 						} else {
-							runProcess('chkconfig', ['--add', name], (error) => {
+							exec('chkconfig --add ' + name, function (error) {
 								if (error) {
 									if (error.code == 'ENOENT') {
-										runProcess('update-rc.d', [name, 'defaults'], (error) => {
+										exec('update-rc.d ' + name + ' defaults', function (error) {
 											if (error) {
 												cb(new Error('update-rd.d failed: ' + error.message));
 											} else {
@@ -310,20 +337,21 @@ function add(name, options, cb) {
 					systemdWantedBy = options.systemdWantedBy;
 				}
 
-				for (var i = 0; i < linuxSystemUnit.length; i++) {
-					var line = linuxSystemUnit[i];
+				for (let i = 0; i < linuxSystemUnit.length; i++) {
+					let line = linuxSystemUnit[i]
 
 					line = line.replace('##NAME##', name);
 					line = line.replace('##COMMAND##', servicePath);
 					line = line.replace('##SYSTEMD_WANTED_BY##', systemdWantedBy);
 					line = line.replace('##DEPENDENCIES##', deps);
+					line = line.replace('##CWD##', cwd);
 
 					systemUnit.push(line);
 				}
 
 				const systemUnitStr = systemUnit.join('\n');
 
-				fs.writeFile(systemPath, systemUnitStr, ctlOptions, (error) => {
+				writeFile(systemPath, systemUnitStr, ctlOptions, function (error) {
 					if (error) {
 						cb(
 							new Error(
@@ -331,7 +359,7 @@ function add(name, options, cb) {
 							)
 						);
 					} else {
-						runProcess('systemctl', ['enable', name], (error) => {
+						exec('systemctl enable ' + name, function (error) {
 							if (error) {
 								cb(new Error('systemctl failed: ' + error.message));
 							} else {
@@ -352,23 +380,34 @@ function isStopRequested() {
 }
 
 function remove(name, cb) {
-	if (os.platform() == 'win32') {
+	if (platform == 'win32') {
 		try {
 			getServiceWrap().remove(name);
 			cb();
 		} catch (error) {
 			cb(error);
 		}
+	} else if (platform == 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents')
+		const plist = resolve(join(root, name + '.plist'))
+
+		unlink(plist, function (error) {
+			if (error) {
+				cb(new Error('launchd failed: ' + error.message));
+			}
+
+			cb();
+		});
 	} else {
-		const initPath = '/etc/init.d/' + name;
+		const initPath = join('/etc/init.d/', name);
 		const systemDir = '/usr/lib/systemd/system';
-		const systemPath = systemDir + '/' + name + '.service';
+		const systemPath = join(systemDir, name + '.service');
 
 		function removeCtlPaths() {
-			fs.unlink(initPath, (error) => {
+			unlink(initPath, function (error) {
 				if (error) {
 					if (error.code == 'ENOENT') {
-						fs.unlink(systemPath, (error) => {
+						unlink(systemPath, function (error) {
 							if (error) {
 								cb(
 									new Error(
@@ -388,13 +427,13 @@ function remove(name, cb) {
 			});
 		}
 
-		fs.stat(systemDir, (error) => {
+		stat(systemDir, function (error) {
 			if (error) {
 				if (error.code == 'ENOENT') {
-					runProcess('chkconfig', ['--del', name], (error) => {
+					exec('chkconfig --del ' + name, function (error) {
 						if (error) {
 							if (error.code == 'ENOENT') {
-								runProcess('update-rc.d', [name, 'remove'], (error) => {
+								exec('update-rc.d ' + name + ' remove', function (error) {
 									if (error) {
 										cb(new Error('update-rc.d failed: ' + error.message));
 									} else {
@@ -412,7 +451,7 @@ function remove(name, cb) {
 					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
 				}
 			} else {
-				runProcess('systemctl', ['disable', name], (error) => {
+				exec('systemctl disable ' + name, function (error) {
 					if (error) {
 						cb(new Error('systemctl failed: ' + error.message));
 					} else {
@@ -426,18 +465,18 @@ function remove(name, cb) {
 
 function run(stopCallback) {
 	if (!runInitialised) {
-		if (os.platform() == 'win32') {
-			setInterval(() => {
+		if (platform == 'win32') {
+			interval = setInterval(function () {
 				if (isStopRequested()) {
 					stopCallback();
 				}
 			}, 2000);
 		} else {
-			process.on('SIGINT', () => {
+			process.once('SIGINT', function () {
 				stopCallback();
 			});
 
-			process.on('SIGTERM', () => {
+			process.once('SIGTERM', function () {
 				stopCallback();
 			});
 		}
@@ -445,19 +484,124 @@ function run(stopCallback) {
 		runInitialised = true;
 	}
 
-	if (os.platform() == 'win32') {
+	if (platform == 'win32') {
 		getServiceWrap().run();
 	}
 }
 
 function stop(rcode) {
-	if (os.platform() == 'win32') {
+	if (platform == 'win32') {
 		getServiceWrap().stop(rcode);
 	}
+
 	process.exit(rcode || 0);
+}
+
+function enable(name, cb) {
+	if (platform == 'win32') {
+		clearInterval(interval);
+
+		exec('net start ' + name, {}, function (err) {
+			if (err) {
+				return cb(new Error('net start failed: ' + err.message))
+			}
+
+			cb();
+		});
+	} else if (platform == 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents')
+		const plist = resolve(join(root, name + '.plist'))
+
+		exec('launchctl load ' + plist, {}, function (err) {
+			if (err) {
+				return cb(err)
+			}
+
+			cb();
+		});
+	} else {
+		const systemDir = '/usr/lib/systemd/system';
+
+		stat(systemDir, function (error) {
+			if (error) {
+				if (error.code == 'ENOENT') {
+					exec('service ' + name + ' start', function (error) {
+						if (error) {
+							cb(new Error('service failed: ' + error.message));
+						}
+
+						cb();
+					});
+				} else {
+					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
+				}
+			} else {
+				exec('systemctl start ' + name, function (error) {
+					if (error) {
+						cb(new Error('systemctl failed: ' + error.message));
+					}
+
+					cb();
+				});
+			}
+		});
+	}
+}
+
+function disable(name, cb) {
+	if (platform == 'win32') {
+		clearInterval(interval);
+
+		exec('net stop ' + name, {}, function (err) {
+			if (err) {
+				return cb(err)
+			}
+
+			cb();
+		});
+	} else if (platform == 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents')
+		const plist = resolve(join(root, name + '.plist'))
+
+		exec('launchctl unload ' + plist, {}, function (err) {
+			if (err) {
+				return cb(err)
+			}
+
+			cb();
+		});
+	} else {
+		const systemDir = '/usr/lib/systemd/system';
+
+		stat(systemDir, function (error) {
+			if (error) {
+				if (error.code == 'ENOENT') {
+					exec('service ' + name + ' stop', function (error) {
+						if (error) {
+							cb(new Error('service failed: ' + error.message));
+						}
+
+						cb();
+					});
+				} else {
+					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
+				}
+			} else {
+				exec('systemctl disable ' + name, function (error) {
+					if (error) {
+						cb(new Error('systemctl failed: ' + error.message));
+					}
+
+					cb();
+				});
+			}
+		});
+	}
 }
 
 exports.add = add;
 exports.remove = remove;
 exports.run = run;
 exports.stop = stop;
+exports.enable = enable;
+exports.disable = disable;

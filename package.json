@@ -12,7 +12,8 @@
     "access": "public"
   },
   "dependencies": {
-    "nan": "2.14.x"
+    "nan": "2.14.x",
+    "plist": "^3.1.0"
   },
   "commitlint": {
     "extends": [
