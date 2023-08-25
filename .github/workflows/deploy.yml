@@ -7,34 +7,161 @@ on:
   workflow_dispatch:
 
 jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-20.04
+          - windows-latest
+        host:
+          - x64
+        target:
+          - x64
+        node:
+          - 10
+          - 11
+          - 12
+          - 13
+          - 14
+          - 15
+          - 16
+          - 17
+          - 18
+        include:
+          - os: windows-latest
+            node: 16
+            host: x86
+            target: x86
+          - os: macos-m1
+            node: 16
+            host: arm64
+            target: arm64
+    name: ${{ matrix.os }} (node=${{ matrix.node }}, host=${{ matrix.host }}, target=${{ matrix.target }})
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.host }}
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.3
+        if: contains(matrix.os, 'windows')
+        with:
+          msbuild-architecture: ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Add env vars
+        shell: bash
+        run: |
+          echo "V=1" >> $GITHUB_ENV
+          
+          if [ "${{ matrix.target }}" = "x86" ]; then
+            echo "TARGET=ia32" >> $GITHUB_ENV
+          else
+            echo "TARGET=${{ matrix.target }}" >> $GITHUB_ENV
+          fi
+
+      - name: Add Linux env vars
+        if: contains(matrix.os, 'ubuntu')
+        run: |
+          echo "CFLAGS=${CFLAGS:-} -include ../src/gcc-preinclude.h" >> $GITHUB_ENV
+          echo "CXXFLAGS=${CXXFLAGS:-} -include ../src/gcc-preinclude.h" >> $GITHUB_ENV
+
+      - name: Configure build
+        run: node-pre-gyp configure --target_arch=${{ env.TARGET }}
+
+      - name: Build binaries
+        run: node-pre-gyp build --target_arch=${{ env.TARGET }}
+
+      - name: Package prebuilt binaries
+        run: node-pre-gyp package --target_arch=${{ env.TARGET }}
+
+      - name: Upload binaries to GitHub Release
+        run: node-pre-gyp-github publish
+        env:
+          NODE_PRE_GYP_GITHUB_TOKEN: ${{ secrets.GPR_TOKEN }}
+  build-qemu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 16
+        target:
+          - linux/arm64
+        variant:
+          - bullseye
+          - alpine3.15
+        include:
+          # musl x64 builds
+          - target: linux/amd64
+            variant: alpine3.15
+            node: 16
+    name: ${{ matrix.variant }} (node=${{ matrix.node }}, target=${{ matrix.target }})
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build binaries and test
+        run: |
+          docker buildx build \
+            --file ./tools/Dockerfile \
+            --load \
+            --tag os-service-builder \
+            --platform ${{ matrix.target }} \
+            --no-cache \
+            --build-arg VARIANT=${{ matrix.variant }} \
+            --build-arg NODE_VERSION=${{ matrix.node }} \
+            .
+          CONTAINER_ID=$(docker create -it os-service-builder)
+          docker cp $CONTAINER_ID:/usr/src/build/build/ ./build
+
+      - name: Upload binaries to GitHub Release
+        run: node-pre-gyp-github publish
+        env:
+          NODE_PRE_GYP_GITHUB_TOKEN: ${{ secrets.GPR_TOKEN }}
   deploy:
+    needs:
+      - build
+      - build-qemu
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.GPR_TOKEN }}
 
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 18
           registry-url: 'https://registry.npmjs.org'
 
-      - run: echo "VERSION=$(git describe --abbrev=0 --tags)" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: npm ci -q
 
-      - run: npm ci -q
-      - run: npm version --no-git-tag-version "$VERSION"
-
-      - run: npm publish
+      - name: Publish to npm
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 18
           registry-url: 'https://npm.pkg.github.com'
           scope: '@NeuraLegion'
 
-      - run: npm publish
+      - name: Publish to GPR
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GPR_TOKEN }}

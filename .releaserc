@@ -3,9 +3,6 @@
     [
       "@semantic-release/commit-analyzer",
       {
-        "releaseRules": [
-          { "type": "docs", "scope": "readme", "release": "patch" }
-        ],
         "parserOpts": {
           "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES"]
         }
@@ -30,6 +27,19 @@
       }
     ],
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "npm version --no-git-tag-version --allow-same-version ${nextRelease.version}"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["package*.json"],
+        "message": "chore(release): cut the ${nextRelease.version} release [skip ci]"
+      }
+    ],
+    [
       "@semantic-release/github",
       {
         "labels": false,
@@ -40,6 +50,10 @@
       }
     ]
   ],
-  "branch": "master",
+  "branches": [
+    {
+      "name": "master"
+    }
+  ],
   "ci": true
 }
