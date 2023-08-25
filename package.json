@@ -12,7 +12,8 @@
     "access": "public"
   },
   "dependencies": {
-    "nan": "2.14.x",
+    "@mapbox/node-pre-gyp": "^1.0.11",
+    "nan": "~2.17.0",
     "plist": "^3.1.0"
   },
   "commitlint": {
@@ -62,10 +63,23 @@
   "devDependencies": {
     "@commitlint/cli": "^11.0.0",
     "@commitlint/config-conventional": "^11.0.0",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "husky": "^4.3.7",
-    "semantic-release": "^17.3.1"
+    "node-pre-gyp-github": "^1.4.4",
+    "semantic-release": "^21.1.1"
+  },
+  "binary": {
+    "module_name": "os_service",
+    "module_path": "./lib/binding/{configuration}/{node_abi}-{platform}-{arch}-{libc}/",
+    "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}-{libc}.tar.gz",
+    "host": "https://github.com/NeuraLegion/node-os-service/releases/download/",
+    "remote_path": "v{version}"
   },
   "scripts": {
-    "semantic-release": "semantic-release"
+    "node-pre-gyp": "node-pre-gyp",
+    "semantic-release": "semantic-release",
+    "node-pre-gyp-github": "node-pre-gyp-github",
+    "install": "node-pre-gyp install --fallback-to-build"
   }
 }

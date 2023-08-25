@@ -1,0 +1,6 @@
+.github
+build
+lib
+node_modules
+.releaserc
+.gitignore
