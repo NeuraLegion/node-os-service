@@ -168,9 +168,7 @@ const linuxSystemUnit = [
 
 function getServiceWrap() {
 	if (!serviceWrap) {
-		const binary = require('@mapbox/node-pre-gyp');
-		const bindingPath = binary.find(resolve(join(__dirname,'./package.json')));
-		serviceWrap = require(bindingPath);
+		serviceWrap = require('node-gyp-build')(__dirname);
 	}
 
 	return serviceWrap;

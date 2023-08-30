@@ -1,35 +1,36 @@
 {
-  'targets': [
+  "targets": [
     {
-      "target_name": "action_after_build",
-      "type": "none",
-      "dependencies": [
-        "<(module_name)"
-      ],
-      "copies": [
-        {
-          "files": [
-            "<(PRODUCT_DIR)/<(module_name).node"
-          ],
-          "destination": "<(module_path)"
-        }
-      ]
-    },
-    {
-      'target_name': 'os_service',
+      "target_name": "os_service",
       "include_dirs": [
         "<!(node -e \"require('nan')\")"
       ],
-      'conditions': [
+      "conditions": [
         [
-          'OS=="win"',
+          "OS==\"mac\"",
           {
-            'libraries': [
-              'advapi32.lib'
+            "xcode_settings": {
+              "MACOSX_DEPLOYMENT_TARGET": "10.7",
+              "OTHER_CFLAGS": [
+                "-arch x86_64",
+                "-arch arm64"
+              ],
+              "OTHER_LDFLAGS": [
+                "-arch x86_64",
+                "-arch arm64"
+              ]
+            }
+          }
+        ],
+        [
+          "OS==\"win\"",
+          {
+            "libraries": [
+              "advapi32.lib"
             ],
-            'sources': [
-              'src/service.cc',
-              'src/pthread.cc'
+            "sources": [
+              "src/service.cc",
+              "src/pthread.cc"
             ]
           }
         ]

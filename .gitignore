@@ -1,6 +1,5 @@
 syntax: glob
 .idea
 build
-lib
 node_modules/
 example/*.log
