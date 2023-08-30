@@ -15,28 +15,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-11
-            node_arch: x64
-            command: build:gyp
-            args: --arch x64+arm64
           - os: windows-2019
             node_arch: x86
             command: build:gyp
           - os: windows-2019
             node_arch: x64
             command: build:gyp
-          - os: ubuntu-20.04
-            command: build:gyp-cross
-            args: -i centos7-devtoolset7 -i alpine
-          - os: ubuntu-20.04
-            command: build:gyp-cross
-            args: -i linux-arm64-lts -i linux-armv7 -i linux-armv6
-          - os: ubuntu-20.04
-            command: build:gyp-cross
-            args: --tag-libc musl -i linux-arm64-musl
-          - os: ubuntu-20.04
-            command: build:gyp-cross
-            args: -i android-arm64 -i android-armv7
     steps:
       - uses: actions/checkout@v3
         with:
