@@ -7,13 +7,14 @@
   "directories": {
     "example": "example"
   },
+  "gypfile": true,
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@mapbox/node-pre-gyp": "^1.0.11",
     "nan": "~2.17.0",
+    "node-gyp-build": "^4.6.1",
     "plist": "^3.1.0"
   },
   "commitlint": {
@@ -66,20 +67,14 @@
     "@semantic-release/exec": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "husky": "^4.3.7",
-    "node-pre-gyp-github": "^1.4.4",
+    "prebuildify": "^5.0.1",
+    "prebuildify-cross": "^5.0.0",
     "semantic-release": "^21.1.1"
   },
-  "binary": {
-    "module_name": "os_service",
-    "module_path": "./lib/binding/{configuration}/{node_abi}-{platform}-{arch}-{libc}/",
-    "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}-{libc}.tar.gz",
-    "host": "https://github.com/NeuraLegion/node-os-service/releases/download/",
-    "remote_path": "v{version}"
-  },
   "scripts": {
-    "node-pre-gyp": "node-pre-gyp",
     "semantic-release": "semantic-release",
-    "node-pre-gyp-github": "node-pre-gyp-github",
-    "install": "node-pre-gyp install --fallback-to-build"
+    "build:gyp": "prebuildify --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.5.1",
+    "build:gyp-cross": "prebuildify-cross --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.5.1",
+    "install": "node-gyp-build"
   }
 }
