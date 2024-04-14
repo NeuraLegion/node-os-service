@@ -13,8 +13,8 @@
     "access": "public"
   },
   "dependencies": {
-    "nan": "~2.17.0",
-    "node-gyp-build": "^4.6.1",
+    "nan": "~2.19.0",
+    "node-gyp-build": "^4.8.0",
     "plist": "^3.1.0"
   },
   "commitlint": {
@@ -67,14 +67,14 @@
     "@semantic-release/exec": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "husky": "^4.3.7",
-    "prebuildify": "^5.0.1",
-    "prebuildify-cross": "^5.0.0",
+    "prebuildify": "^6.0.0",
+    "prebuildify-cross": "^5.1.0",
     "semantic-release": "^21.1.1"
   },
   "scripts": {
     "semantic-release": "semantic-release",
-    "build:gyp": "prebuildify --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.5.1",
-    "build:gyp-cross": "prebuildify-cross --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.5.1",
+    "build:gyp": "prebuildify --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.5.1 --target 20.12.2 --target 21.7.3",
+    "build:gyp-cross": "prebuildify-cross --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.12.2 --target 21.7.3",
     "native_install": "node-gyp-build",
     "install": "node scripts/install.js"
   }
