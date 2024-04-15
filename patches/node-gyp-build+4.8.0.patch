@@ -1,0 +1,27 @@
+diff --git a/node_modules/node-gyp-build/bin.js b/node_modules/node-gyp-build/bin.js
+index 3fbcdf0..75deeca 100755
+--- a/node_modules/node-gyp-build/bin.js
++++ b/node_modules/node-gyp-build/bin.js
+@@ -27,7 +27,7 @@ function build () {
+     ]
+   } catch (_) {}
+ 
+-  proc.spawn(args[0], args.slice(1), { stdio: 'inherit' }).on('exit', function (code) {
++  proc.spawn(args[0], args.slice(1), { stdio: 'inherit', ...(os.platform() === 'win32' ? { shell: true, windowsHide: true } : {}) }).on('exit', function (code) {
+     if (code || !process.argv[3]) process.exit(code)
+     exec(process.argv[3]).on('exit', function (code) {
+       process.exit(code)
+@@ -51,9 +51,10 @@ function exec (cmd) {
+     })
+   }
+ 
+-  return proc.spawn(process.env.comspec || 'cmd.exe', ['/s', '/c', '"' + cmd + '"'], {
+-    windowsVerbatimArguments: true,
+-    stdio: 'inherit'
++  return proc.spawn(cmd, {
++    windowsHide: true,
++    stdio: 'inherit',
++    shell: true
+   })
+ }
+ 
