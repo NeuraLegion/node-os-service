@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "nan": "^2.19.0",
-    "node-gyp-build": "^4.6.1",
+    "node-gyp-build": "^4.8.0",
     "plist": "^3.1.0"
   },
   "commitlint": {
