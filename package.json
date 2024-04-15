@@ -63,7 +63,6 @@
     "@semantic-release/git": "^10.0.1",
     "husky": "^8.0.3",
     "is-ci": "^3.0.1",
-    "patch-package": "^8.0.0",
     "prebuildify": "^6.0.0",
     "prebuildify-cross": "^5.1.0",
     "semantic-release": "^23.0.8"
@@ -74,7 +73,6 @@
     "build:gyp-cross": "prebuildify-cross --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.12.2 --target 21.7.3",
     "native_install": "node-gyp-build",
     "install": "node scripts/install.js",
-    "prepare": "is-ci || husky install",
-    "postinstall": "patch-package"
+    "prepare": "is-ci || husky install"
   }
 }
