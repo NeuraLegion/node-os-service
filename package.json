@@ -65,7 +65,7 @@
     "is-ci": "^3.0.1",
     "prebuildify": "^5.0.1",
     "prebuildify-cross": "^5.0.0",
-    "semantic-release": "^21.1.1"
+    "semantic-release": "^23.0.8"
   },
   "scripts": {
     "semantic-release": "semantic-release",
