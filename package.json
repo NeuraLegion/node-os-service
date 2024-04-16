@@ -1,6 +1,6 @@
 {
   "name": "@neuralegion/os-service",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Run Node.JS programs as native Operating System Services.",
   "main": "index.js",
   "types": "index.d.ts",
