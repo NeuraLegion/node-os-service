@@ -13,7 +13,7 @@
     "access": "public"
   },
   "dependencies": {
-    "nan": "^2.19.0",
+    "nan": "^2.20.0",
     "node-gyp-build": "github:derevnjuk/node-gyp-build#0d253a1f7f903f8ac211c5dfc711ffc422d6e3f4",
     "plist": "^3.1.0"
   },
