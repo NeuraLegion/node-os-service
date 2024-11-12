@@ -74,7 +74,7 @@ VOID WINAPI handler (DWORD signal) {
 }
 
 VOID WINAPI run (DWORD argc, LPTSTR *argv) {
-	if (! (status_handle = RegisterServiceCtrlHandler ("", handler))) {
+	if (!(status_handle = RegisterServiceCtrlHandler(const_cast<LPSTR>(""), handler))) {
 		set_status (SERVICE_STOPPED, GetLastError (), 0);
 		return;
 	}
@@ -87,7 +87,7 @@ VOID WINAPI run (DWORD argc, LPTSTR *argv) {
 }
 
 DWORD __stdcall run_thread (LPVOID param) {
-	SERVICE_TABLE_ENTRY table[] = {{"", run}, {0, }};
+	SERVICE_TABLE_ENTRY table[] = {{const_cast<LPSTR>(""), run}, {0, }};
 
 	if (StartServiceCtrlDispatcher (table)) {
 		while (1) {

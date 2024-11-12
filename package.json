@@ -13,8 +13,8 @@
     "access": "public"
   },
   "dependencies": {
-    "nan": "^2.19.0",
-    "node-gyp-build": "github:derevnjuk/node-gyp-build#0d253a1f7f903f8ac211c5dfc711ffc422d6e3f4",
+    "nan": "^2.22.0",
+    "node-gyp-build": "^4.8.3",
     "plist": "^3.1.0"
   },
   "commitlint": {
@@ -63,16 +63,21 @@
     "@semantic-release/git": "^10.0.1",
     "husky": "^8.0.3",
     "is-ci": "^3.0.1",
-    "prebuildify": "github:derevnjuk/prebuildify#fde6268682ac5093257ec28b5dbc0eaa3807dc4e",
-    "prebuildify-cross": "^5.1.0",
+    "prebuildify": "^6.0.1",
+    "prebuildify-cross": "^5.1.1",
     "semantic-release": "^23.0.8"
   },
   "scripts": {
     "semantic-release": "semantic-release",
-    "build:gyp": "prebuildify --napi false --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.12.2 --target 21.7.3",
-    "build:gyp-cross": "prebuildify-cross --napi false --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.12.2 --target 21.7.3",
+    "build:gyp": "prebuildify --napi false --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.12.2 --target 21.7.3 --target 22.11.0",
+    "build:gyp-cross": "prebuildify-cross --napi false --strip --target 10.24.1 --target 12.22.12 --target 14.21.3 --target 16.20.2 --target 18.17.1 --target 19.9.0 --target 20.12.2 --target 21.7.3 --target 22.11.0",
     "native_install": "node-gyp-build",
     "install": "node scripts/install.js",
     "prepare": "is-ci || husky install"
+  },
+  "overrides": {
+    "prebuildify": {
+      "node-abi": "^3.71.0"
+    }
   }
 }
