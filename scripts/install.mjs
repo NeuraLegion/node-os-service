@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 if (platform() === 'win32') {
-  const npmProcess = spawn('npm run native_install', {
+  const npmProcess = spawn('npm', ['run', 'native_install'], {
     input: 'Windows detected. Installing native module.',
     stdio: 'inherit',
     cwd: resolve(__dirname, '..'),
