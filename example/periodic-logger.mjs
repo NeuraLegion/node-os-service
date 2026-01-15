@@ -1,7 +1,13 @@
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
-import { add, disable, remove, stop, run, enable } from '../lib/index.mjs';
+import { promisify } from 'node:util';
+import { add as addCb, disable as disableCb, remove as removeCb, stop, run, enable as enableCb } from '../lib/index.mjs';
+
+const add = promisify(addCb);
+const enable = promisify(enableCb);
+const disable = promisify(disableCb);
+const remove = promisify(removeCb);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -34,29 +40,21 @@ if (command === '--add' && name) {
   if (password) options.password = password;
   if (dependencies.length) options.dependencies = dependencies;
 
-  add(name, options, (error) => {
-    if (error) {
-      return console.error(error);
-    }
-
-    enable(name, (error) => {
-      if (error) {
-        console.error(error);
-      }
-    });
-  });
+  try {
+    await add(name, options);
+    await enable(name);
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
 } else if (command === '--remove' && name) {
-  disable(name, (error) => {
-    if (error) {
-      return console.error(error);
-    }
-
-    remove(name, (error) => {
-      if (error) {
-        console.error(error);
-      }
-    });
-  });
+  try {
+    await disable(name);
+    await remove(name);
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
 } else if (command === '--run') {
   run(() => {
     stop(0);
