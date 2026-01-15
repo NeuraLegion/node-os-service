@@ -1,12 +1,12 @@
 'use strict';
 
-const { describe, it, before, after } = require('test');
-const { ok, fail } = require('assert');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const { stat, readFile, access, constants } = require('fs/promises');
-const { join } = require('path');
-const { platform, homedir } = require('os');
+const { describe, it, before, after } = require('node:test');
+const { ok, fail } = require('node:assert');
+const { exec } = require('node:child_process');
+const { promisify } = require('node:util');
+const { stat, readFile, access, constants } = require('node:fs/promises');
+const { join } = require('node:path');
+const { platform, homedir } = require('node:os');
 
 const execAsync = promisify(exec);
 

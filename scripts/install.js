@@ -1,12 +1,12 @@
-var os = require('node:os');
-var path = require('node:path');
-var child = require('node:child_process');
+var { platform } = require('node:os');
+var { resolve } = require('node:path');
+var { spawn } = require('node:child_process');
 
-if (os.platform() === 'win32') {
-  var npmProcess = child.spawn('npm', ['run', 'native_install'], {
+if (platform() === 'win32') {
+  var npmProcess = spawn('npm', ['run', 'native_install'], {
     input: 'Windows detected. Installing native module.',
     stdio: 'inherit',
-    cwd: path.resolve(__dirname, '..'),
+    cwd: resolve(__dirname, '..'),
     env: process.env,
     windowsHide: true,
     shell: true

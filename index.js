@@ -1,16 +1,15 @@
 'use strict';
 
-const os = require('os');
-const {join, resolve, dirname} = require('node:path');
-const {exec: execCb} = require('node:child_process');
-const {promisify, callbackify} = require('node:util');
-const {build} = require('plist');
-const {stat, unlink, mkdir, writeFile} = require('node:fs/promises');
+const { platform, homedir } = require('node:os');
+const { join, resolve, dirname } = require('node:path');
+const { exec: execCb } = require('node:child_process');
+const { promisify, callbackify } = require('node:util');
+const { build } = require('plist');
+const { stat, unlink, mkdir, writeFile } = require('node:fs/promises');
 
 const exec = promisify(execCb);
-
-const platform = os.platform();
-const homedir = os.homedir();
+const os = platform();
+const rootdir = homedir();
 
 let serviceWrap;
 let runInitialised = false;
@@ -179,7 +178,7 @@ function getServiceWrap() {
 
 async function addAsync(name, options = {}) {
 	const command = options.command ?? process.execPath;
-	const cwd = command ? dirname(command) : homedir;
+	const cwd = command ? dirname(command) : rootdir;
 	const username = options.username ?? null;
 	const password = options.password ?? null;
 
@@ -189,7 +188,7 @@ async function addAsync(name, options = {}) {
 		serviceArgs.push(...options.args);
 	}
 
-	if (platform !== 'darwin') {
+	if (os !== 'darwin') {
 		for (let i = 0; i < serviceArgs.length; i++) {
 			serviceArgs[i] = '"' + serviceArgs[i] + '"';
 		}
@@ -198,7 +197,7 @@ async function addAsync(name, options = {}) {
 	const servicePath = serviceArgs.join(' ');
 	const displayName = options.displayName ?? name;
 
-	if (platform === 'win32') {
+	if (os === 'win32') {
 		const deps = options.dependencies ? options.dependencies.join('\0') + '\0\0' : '';
 
 		getServiceWrap().add(
@@ -209,8 +208,8 @@ async function addAsync(name, options = {}) {
 			password,
 			deps
 		);
-	} else if (platform === 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents');
+	} else if (os === 'darwin') {
+		const root = join(rootdir, '/Library/LaunchAgents');
 		const plist = resolve(join(root, name + '.plist'));
 
 		const tpl = {
@@ -311,10 +310,10 @@ function isStopRequested() {
 }
 
 async function removeAsync(name) {
-	if (platform === 'win32') {
+	if (os === 'win32') {
 		getServiceWrap().remove(name);
-	} else if (platform === 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents');
+	} else if (os === 'darwin') {
+		const root = join(rootdir, '/Library/LaunchAgents');
 		const plist = resolve(join(root, name + '.plist'));
 
 		try {
@@ -384,7 +383,7 @@ const remove = callbackify(removeAsync);
 
 function run(stopCallback) {
 	if (!runInitialised) {
-		if (platform === 'win32') {
+		if (os === 'win32') {
 			interval = setInterval(function () {
 				if (isStopRequested()) {
 					stopCallback();
@@ -403,13 +402,13 @@ function run(stopCallback) {
 		runInitialised = true;
 	}
 
-	if (platform === 'win32') {
+	if (os === 'win32') {
 		getServiceWrap().run();
 	}
 }
 
 function stop(rcode) {
-	if (platform === 'win32') {
+	if (os === 'win32') {
 		getServiceWrap().stop(rcode);
 	}
 
@@ -417,7 +416,7 @@ function stop(rcode) {
 }
 
 async function enableAsync(name) {
-	if (platform === 'win32') {
+	if (os === 'win32') {
 		clearInterval(interval);
 
 		try {
@@ -425,8 +424,8 @@ async function enableAsync(name) {
 		} catch (error) {
 			throw new Error('net start failed: ' + error.message);
 		}
-	} else if (platform === 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents');
+	} else if (os === 'darwin') {
+		const root = join(rootdir, '/Library/LaunchAgents');
 		const plist = resolve(join(root, name + '.plist'));
 
 		await exec('launchctl load ' + plist);
@@ -463,12 +462,12 @@ async function enableAsync(name) {
 const enable = callbackify(enableAsync);
 
 async function disableAsync(name) {
-	if (platform === 'win32') {
+	if (os === 'win32') {
 		clearInterval(interval);
 
 		await exec('net stop ' + name);
-	} else if (platform === 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents');
+	} else if (os === 'darwin') {
+		const root = join(rootdir, '/Library/LaunchAgents');
 		const plist = resolve(join(root, name + '.plist'));
 
 		await exec('launchctl unload ' + plist);

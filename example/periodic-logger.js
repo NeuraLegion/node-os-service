@@ -6,7 +6,7 @@
 process.chdir(__dirname);
 
 const service = require('../');
-const fs = require('node:fs');
+const { createWriteStream } = require('node:fs');
 
 function usage() {
   console.log(
@@ -60,7 +60,7 @@ if (command === '--add' && name) {
     service.stop(0);
   });
 
-  const logStream = fs.createWriteStream(process.argv[1] + '.log');
+  const logStream = createWriteStream(process.argv[1] + '.log');
 
   // Here is our long running code, simply print a date/time string to
   // our log file
