@@ -5,7 +5,6 @@ const { ok, fail } = require('node:assert');
 const { exec } = require('node:child_process');
 const { promisify } = require('node:util');
 const { stat, readFile, access, constants } = require('node:fs/promises');
-const { setTimeout } = require('node:timers/promises');
 const { join } = require('node:path');
 const { platform, homedir } = require('node:os');
 
@@ -166,7 +165,6 @@ describe('OS Service E2E Tests', () => {
 
           // act
           await execAsync(`launchctl load ${plist}`);
-          await setTimeout(1000);
 
           // assert
           ok(true, 'Service loaded without error');
@@ -300,8 +298,6 @@ describe('OS Service E2E Tests', () => {
             await execAsync(`${sudoPrefix}systemctl stop ${serviceName}`).catch(() => {});
           } else {
             await execAsync(`${sudoPrefix}/etc/init.d/${serviceName} stop`).catch(() => {});
-            // wait for service to fully stop
-            await setTimeout(2000);
           }
 
           // assert
@@ -317,22 +313,19 @@ describe('OS Service E2E Tests', () => {
           // ensure service is stopped before removal
           if (useSystemd) {
             await execAsync(`${sudoPrefix}systemctl stop ${SERVICE_NAME}`).catch(() => {});
-          } else {
-            await execAsync(`${sudoPrefix}/etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
-            await setTimeout(1000);
-          }
-
-          try {
-            await runPeriodicLogger('--remove', SERVICE_NAME);
-          } catch {
-            // if periodic-logger fails, try manual cleanup
-            if (useSystemd) {
+            try {
+              await runPeriodicLogger('--remove', SERVICE_NAME);
+            } catch {
+              // fallback to manual cleanup
               await execAsync(`${sudoPrefix}systemctl disable ${SERVICE_NAME}`).catch(() => {});
               await execAsync(`${sudoPrefix}rm -f ${systemdPath}`).catch(() => {});
-            } else {
-              await execAsync(`${sudoPrefix}update-rc.d ${SERVICE_NAME} remove`).catch(() => {});
-              await execAsync(`${sudoPrefix}rm -f ${initPath}`).catch(() => {});
             }
+          } else {
+            // for init.d, skip periodic-logger --remove as it hangs on service stop
+            // do manual cleanup instead
+            await execAsync(`${sudoPrefix}/etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
+            await execAsync(`${sudoPrefix}update-rc.d ${SERVICE_NAME} remove`).catch(() => {});
+            await execAsync(`${sudoPrefix}rm -f ${initPath}`).catch(() => {});
           }
 
           // assert
