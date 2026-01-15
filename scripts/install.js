@@ -1,6 +1,6 @@
-var os = require('os');
-var path = require('path');
-var child = require('child_process');
+var os = require('node:os');
+var path = require('node:path');
+var child = require('node:child_process');
 
 if (os.platform() === 'win32') {
   var npmProcess = child.spawn('npm', ['run', 'native_install'], {

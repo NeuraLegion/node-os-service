@@ -1,11 +1,11 @@
 'use strict';
 
 const os = require('os');
-const {join, resolve, dirname} = require('path');
-const {exec: execCb} = require('child_process');
-const {promisify, callbackify} = require('util');
+const {join, resolve, dirname} = require('node:path');
+const {exec: execCb} = require('node:child_process');
+const {promisify, callbackify} = require('node:util');
 const {build} = require('plist');
-const {stat, unlink, mkdir, writeFile} = require('fs/promises');
+const {stat, unlink, mkdir, writeFile} = require('node:fs/promises');
 
 const exec = promisify(execCb);
 
