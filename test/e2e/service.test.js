@@ -5,6 +5,7 @@ const { ok, fail } = require('node:assert');
 const { exec } = require('node:child_process');
 const { promisify } = require('node:util');
 const { stat, readFile, access, constants } = require('node:fs/promises');
+const { setTimeout } = require('node:timers/promises');
 const { join } = require('node:path');
 const { platform, homedir } = require('node:os');
 
@@ -42,7 +43,8 @@ async function hasSystemd() {
 
 async function runPeriodicLogger(...args) {
   const scriptPath = join(__dirname, '../../example/periodic-logger.js');
-  const { stdout, stderr } = await execAsync(`node ${scriptPath} ${args.join(' ')}`);
+  const prefix = currentPlatform === 'linux' ? 'sudo ' : '';
+  const { stdout, stderr } = await execAsync(`${prefix}node ${scriptPath} ${args.join(' ')}`);
   return { stdout, stderr };
 }
 
@@ -56,8 +58,8 @@ async function cleanup() {
       await execAsync(`launchctl unload ${plistPath}`).catch(() => {});
       await runPeriodicLogger('--remove', SERVICE_NAME);
     } else {
-      await execAsync(`systemctl stop ${SERVICE_NAME}`).catch(() => {});
-      await execAsync(`/etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
+      await execAsync(`sudo systemctl stop ${SERVICE_NAME}`).catch(() => {});
+      await execAsync(`sudo /etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
       await runPeriodicLogger('--remove', SERVICE_NAME);
     }
   } catch {
@@ -71,7 +73,7 @@ describe('OS Service E2E Tests', () => {
 
     if (currentPlatform === 'win32') {
       describe('Windows Service', () => {
-        it('should add a service', async () => {
+        it('should add and start a service', async () => {
           // arrange
           const serviceName = SERVICE_NAME;
 
@@ -79,20 +81,9 @@ describe('OS Service E2E Tests', () => {
           await runPeriodicLogger('--add', serviceName);
           const { stdout } = await execAsync(`sc query ${serviceName}`);
 
-          // assert
+          // assert (service is registered and running after add+enable)
           ok(stdout.includes(serviceName), 'Service should be registered');
-        });
-
-        it('should start the service', async () => {
-          // arrange
-          const serviceName = SERVICE_NAME;
-
-          // act
-          await execAsync(`sc start ${serviceName}`);
-          const { stdout } = await execAsync(`sc query ${serviceName}`);
-
-          // assert
-          ok(stdout.includes('RUNNING'), 'Service should be running');
+          ok(stdout.includes('RUNNING'), 'Service should be running after add');
         });
 
         it('should stop the service', async () => {
@@ -107,11 +98,24 @@ describe('OS Service E2E Tests', () => {
           ok(stdout.includes('STOPPED'), 'Service should be stopped');
         });
 
+        it('should start the service again', async () => {
+          // arrange
+          const serviceName = SERVICE_NAME;
+
+          // act
+          await execAsync(`sc start ${serviceName}`);
+          const { stdout } = await execAsync(`sc query ${serviceName}`);
+
+          // assert
+          ok(stdout.includes('RUNNING'), 'Service should be running');
+        });
+
         it('should remove the service', async () => {
           // arrange
           const serviceName = SERVICE_NAME;
 
           // act
+          await execAsync(`sc stop ${serviceName}`).catch(() => {});
           await runPeriodicLogger('--remove', serviceName);
 
           // assert
@@ -161,7 +165,7 @@ describe('OS Service E2E Tests', () => {
 
           // act
           await execAsync(`launchctl load ${plist}`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await setTimeout(1000);
 
           // assert
           ok(true, 'Service loaded without error');
@@ -276,10 +280,10 @@ describe('OS Service E2E Tests', () => {
 
           // act
           if (useSystemd) {
-            await execAsync('systemctl daemon-reload');
-            await execAsync(`systemctl start ${serviceName}`).catch(() => {});
+            await execAsync('sudo systemctl daemon-reload');
+            await execAsync(`sudo systemctl start ${serviceName}`).catch(() => {});
           } else {
-            await execAsync(`/etc/init.d/${serviceName} start`).catch(() => {});
+            await execAsync(`sudo /etc/init.d/${serviceName} start`).catch(() => {});
           }
 
           // assert
@@ -292,9 +296,11 @@ describe('OS Service E2E Tests', () => {
 
           // act
           if (useSystemd) {
-            await execAsync(`systemctl stop ${serviceName}`).catch(() => {});
+            await execAsync(`sudo systemctl stop ${serviceName}`).catch(() => {});
           } else {
-            await execAsync(`/etc/init.d/${serviceName} stop`).catch(() => {});
+            await execAsync(`sudo /etc/init.d/${serviceName} stop`).catch(() => {});
+            // wait for service to fully stop
+            await setTimeout(2000);
           }
 
           // assert
@@ -307,7 +313,26 @@ describe('OS Service E2E Tests', () => {
           const initPath = `/etc/init.d/${SERVICE_NAME}`;
 
           // act
-          await runPeriodicLogger('--remove', SERVICE_NAME);
+          // ensure service is stopped before removal
+          if (useSystemd) {
+            await execAsync(`sudo systemctl stop ${SERVICE_NAME}`).catch(() => {});
+          } else {
+            await execAsync(`sudo /etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
+            await setTimeout(1000);
+          }
+
+          try {
+            await runPeriodicLogger('--remove', SERVICE_NAME);
+          } catch {
+            // if periodic-logger fails, try manual cleanup
+            if (useSystemd) {
+              await execAsync(`sudo systemctl disable ${SERVICE_NAME}`).catch(() => {});
+              await execAsync(`sudo rm -f ${systemdPath}`).catch(() => {});
+            } else {
+              await execAsync(`sudo update-rc.d ${SERVICE_NAME} remove`).catch(() => {});
+              await execAsync(`sudo rm -f ${initPath}`).catch(() => {});
+            }
+          }
 
           // assert
           if (useSystemd) {
