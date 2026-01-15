@@ -1,15 +1,13 @@
-'use strict';
+import { describe, it, after } from 'node:test';
+import { ok, rejects } from 'node:assert';
+import { platform } from 'node:os';
 
-const { describe, it, after } = require('node:test');
-const { ok, rejects } = require('node:assert');
-const { platform } = require('node:os');
-
-const {
+import {
   SERVICE_NAME,
   execAsync,
   waitForWindowsServiceState,
   runPeriodicLogger
-} = require('./helpers');
+} from './helpers.js';
 
 async function cleanup() {
   try {

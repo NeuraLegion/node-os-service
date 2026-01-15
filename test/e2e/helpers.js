@@ -1,20 +1,18 @@
-'use strict';
-
-const { exec } = require('node:child_process');
-const { promisify } = require('node:util');
-const { stat, access, constants } = require('node:fs/promises');
-const { setTimeout } = require('node:timers/promises');
-const { join } = require('node:path');
-const { platform } = require('node:os');
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+import { stat, access, constants } from 'node:fs/promises';
+import { setTimeout } from 'node:timers/promises';
+import { join } from 'node:path';
+import { platform } from 'node:os';
 
 const execAsync = promisify(exec);
 
-const SERVICE_NAME = 'test-os-service';
-const currentPlatform = platform();
-const isRoot = process.getuid && process.getuid() === 0;
-const sudoPrefix = currentPlatform === 'linux' && !isRoot ? 'sudo ' : '';
+export const SERVICE_NAME = 'test-os-service';
+export const currentPlatform = platform();
+export const isRoot = process.getuid && process.getuid() === 0;
+export const sudoPrefix = currentPlatform === 'linux' && !isRoot ? 'sudo ' : '';
 
-async function fileExists(filePath) {
+export async function fileExists(filePath) {
   try {
     await stat(filePath);
     return true;
@@ -23,7 +21,7 @@ async function fileExists(filePath) {
   }
 }
 
-async function isExecutable(filePath) {
+export async function isExecutable(filePath) {
   try {
     await access(filePath, constants.X_OK);
     return true;
@@ -32,7 +30,7 @@ async function isExecutable(filePath) {
   }
 }
 
-async function hasSystemd() {
+export async function hasSystemd() {
   try {
     await stat('/usr/lib/systemd/system');
     return true;
@@ -41,7 +39,7 @@ async function hasSystemd() {
   }
 }
 
-async function waitForWindowsServiceState(serviceName, expectedState, maxAttempts = 10) {
+export async function waitForWindowsServiceState(serviceName, expectedState, maxAttempts = 10) {
   for (let i = 0; i < maxAttempts; i++) {
     const { stdout } = await execAsync(`sc query ${serviceName}`);
     if (stdout.includes(expectedState)) {
@@ -53,21 +51,10 @@ async function waitForWindowsServiceState(serviceName, expectedState, maxAttempt
   return stdout;
 }
 
-async function runPeriodicLogger(...args) {
-  const scriptPath = join(__dirname, '../../example/periodic-logger.js');
+export async function runPeriodicLogger(...args) {
+  const scriptPath = join(import.meta.dirname, '../../example/periodic-logger.js');
   const { stdout, stderr } = await execAsync(`${sudoPrefix}node ${scriptPath} ${args.join(' ')}`);
   return { stdout, stderr };
 }
 
-module.exports = {
-  SERVICE_NAME,
-  currentPlatform,
-  isRoot,
-  sudoPrefix,
-  execAsync,
-  fileExists,
-  isExecutable,
-  hasSystemd,
-  waitForWindowsServiceState,
-  runPeriodicLogger
-};
+export { execAsync };

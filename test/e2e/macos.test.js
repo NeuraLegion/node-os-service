@@ -1,17 +1,15 @@
-'use strict';
+import { describe, it, after } from 'node:test';
+import { ok } from 'node:assert';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { platform, homedir } from 'node:os';
 
-const { describe, it, after } = require('node:test');
-const { ok } = require('node:assert');
-const { readFile } = require('node:fs/promises');
-const { join } = require('node:path');
-const { platform, homedir } = require('node:os');
-
-const {
+import {
   SERVICE_NAME,
   execAsync,
   fileExists,
   runPeriodicLogger
-} = require('./helpers');
+} from './helpers.js';
 
 const plistPath = join(homedir(), 'Library/LaunchAgents', `${SERVICE_NAME}.plist`);
 

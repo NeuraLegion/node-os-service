@@ -1,11 +1,9 @@
-'use strict';
+import { describe, it, after } from 'node:test';
+import { ok } from 'node:assert';
+import { readFile, unlink } from 'node:fs/promises';
+import { platform } from 'node:os';
 
-const { describe, it, after } = require('node:test');
-const { ok } = require('node:assert');
-const { readFile, unlink } = require('node:fs/promises');
-const { platform } = require('node:os');
-
-const {
+import {
   SERVICE_NAME,
   sudoPrefix,
   execAsync,
@@ -13,7 +11,7 @@ const {
   isExecutable,
   hasSystemd,
   runPeriodicLogger
-} = require('./helpers');
+} from './helpers.js';
 
 const initPath = `/etc/init.d/${SERVICE_NAME}`;
 

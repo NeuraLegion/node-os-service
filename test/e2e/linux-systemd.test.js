@@ -1,18 +1,16 @@
-'use strict';
+import { describe, it, after } from 'node:test';
+import { ok } from 'node:assert';
+import { readFile } from 'node:fs/promises';
+import { platform } from 'node:os';
 
-const { describe, it, after } = require('node:test');
-const { ok } = require('node:assert');
-const { readFile, unlink } = require('node:fs/promises');
-const { platform } = require('node:os');
-
-const {
+import {
   SERVICE_NAME,
   sudoPrefix,
   execAsync,
   fileExists,
   hasSystemd,
   runPeriodicLogger
-} = require('./helpers');
+} from './helpers.js';
 
 const systemdPath = `/usr/lib/systemd/system/${SERVICE_NAME}.service`;
 
