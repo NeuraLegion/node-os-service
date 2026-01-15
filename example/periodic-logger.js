@@ -6,7 +6,7 @@
 process.chdir(__dirname);
 
 const service = require('../');
-const fs = require('fs');
+const fs = require('node:fs');
 
 function usage() {
   console.log(
@@ -17,49 +17,45 @@ function usage() {
   process.exit(-1);
 }
 
-process.title = process.argv[3];
+const [,, command, name, ...rest] = process.argv;
 
-if (process.argv[2] == '--add' && process.argv.length >= 4) {
+process.title = name;
+
+if (command === '--add' && name) {
   const options = {
     args: [process.argv[1], '--run', 'me']
   };
 
-  if (process.argv.length > 4) {
-    options.username = process.argv[4];
-  }
+  const [username, password, ...dependencies] = rest;
 
-  if (process.argv.length > 5) {
-    options.password = process.argv[5];
-  }
+  if (username) options.username = username;
+  if (password) options.password = password;
+  if (dependencies.length) options.dependencies = dependencies;
 
-  if (process.argv.length > 6) {
-    options.dependencies = process.argv.splice(6);
-  }
-
-  service.add(process.argv[3], options, (error) => {
+  service.add(name, options, (error) => {
     if (error) {
       return console.error(error);
     }
 
-    service.enable(process.argv[3], (error) => {
-      if (error) {
-        console.error(error);
-      }
-    })
-  });
-} else if (process.argv[2] == '--remove' && process.argv.length >= 4) {
-  service.disable(process.argv[3], (error) => {
-    if (error) {
-      return console.error(error);
-    }
-
-    service.remove(process.argv[3], (error) => {
+    service.enable(name, (error) => {
       if (error) {
         console.error(error);
       }
     });
-  })
-} else if (process.argv[2] == '--run') {
+  });
+} else if (command === '--remove' && name) {
+  service.disable(name, (error) => {
+    if (error) {
+      return console.error(error);
+    }
+
+    service.remove(name, (error) => {
+      if (error) {
+        console.error(error);
+      }
+    });
+  });
+} else if (command === '--run') {
   service.run(() => {
     service.stop(0);
   });
