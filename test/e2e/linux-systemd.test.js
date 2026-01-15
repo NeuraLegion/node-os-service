@@ -29,7 +29,7 @@ async function shouldSkip() {
   return platform() !== 'linux' || !(await hasSystemd());
 }
 
-describe('Linux: Systemd', { skip: shouldSkip }, () => {
+describe('Linux: Systemd', { skip: await shouldSkip() }, () => {
   after(cleanup);
 
   it('should add a service and create unit file', async () => {

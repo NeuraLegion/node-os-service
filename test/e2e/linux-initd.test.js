@@ -31,7 +31,7 @@ async function shouldSkip() {
   return platform() !== 'linux' || (await hasSystemd());
 }
 
-describe('Linux: Init.d', { skip: shouldSkip }, () => {
+describe('Linux: Init.d', { skip: await shouldSkip() }, () => {
   after(cleanup);
 
   it('should add a service and create init script', async () => {
