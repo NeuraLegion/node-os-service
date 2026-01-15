@@ -4,7 +4,7 @@ const { describe, it, before, after } = require('node:test');
 const { ok, fail } = require('node:assert');
 const { exec } = require('node:child_process');
 const { promisify } = require('node:util');
-const { stat, readFile, access, constants } = require('node:fs/promises');
+const { stat, readFile, access, unlink, constants } = require('node:fs/promises');
 const { join } = require('node:path');
 const { platform, homedir } = require('node:os');
 
@@ -318,14 +318,14 @@ describe('OS Service E2E Tests', () => {
             } catch {
               // fallback to manual cleanup
               await execAsync(`${sudoPrefix}systemctl disable ${SERVICE_NAME}`).catch(() => {});
-              await execAsync(`${sudoPrefix}rm -f ${systemdPath}`).catch(() => {});
+              await unlink(systemdPath).catch(() => {});
             }
           } else {
             // for init.d, skip periodic-logger --remove as it hangs on service stop
             // do manual cleanup instead
             await execAsync(`${sudoPrefix}/etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
             await execAsync(`${sudoPrefix}update-rc.d ${SERVICE_NAME} remove`).catch(() => {});
-            await execAsync(`${sudoPrefix}rm -f ${initPath}`).catch(() => {});
+            await unlink(initPath).catch(() => {});
           }
 
           // assert
