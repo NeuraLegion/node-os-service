@@ -96,7 +96,7 @@
   "scripts": {
     "build": "tsup",
     "prepublishOnly": "npm run build",
-    "test": "node --test test/e2e/*.test.mjs",
+    "test": "node --test",
     "semantic-release": "semantic-release",
     "build:gyp": "prebuildify --napi false --strip --target 20.20.0 --target 21.7.3 --target 22.22.0 --target 23.11.1 --target 24.13.0 --target 25.3.0",
     "build:gyp-cross": "prebuildify-cross --napi false --strip --target 20.20.0 --target 21.7.3 --target 22.22.0 --target 23.11.1 --target 24.13.0 --target 25.3.0",
