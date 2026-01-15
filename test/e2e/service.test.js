@@ -13,6 +13,8 @@ const execAsync = promisify(exec);
 
 const SERVICE_NAME = 'test-os-service';
 const currentPlatform = platform();
+const isRoot = process.getuid && process.getuid() === 0;
+const sudoPrefix = currentPlatform === 'linux' && !isRoot ? 'sudo ' : '';
 
 async function fileExists(filePath) {
   try {
@@ -43,8 +45,7 @@ async function hasSystemd() {
 
 async function runPeriodicLogger(...args) {
   const scriptPath = join(__dirname, '../../example/periodic-logger.js');
-  const prefix = currentPlatform === 'linux' ? 'sudo ' : '';
-  const { stdout, stderr } = await execAsync(`${prefix}node ${scriptPath} ${args.join(' ')}`);
+  const { stdout, stderr } = await execAsync(`${sudoPrefix}node ${scriptPath} ${args.join(' ')}`);
   return { stdout, stderr };
 }
 
@@ -58,8 +59,8 @@ async function cleanup() {
       await execAsync(`launchctl unload ${plistPath}`).catch(() => {});
       await runPeriodicLogger('--remove', SERVICE_NAME);
     } else {
-      await execAsync(`sudo systemctl stop ${SERVICE_NAME}`).catch(() => {});
-      await execAsync(`sudo /etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
+      await execAsync(`${sudoPrefix}systemctl stop ${SERVICE_NAME}`).catch(() => {});
+      await execAsync(`${sudoPrefix}/etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
       await runPeriodicLogger('--remove', SERVICE_NAME);
     }
   } catch {
@@ -280,10 +281,10 @@ describe('OS Service E2E Tests', () => {
 
           // act
           if (useSystemd) {
-            await execAsync('sudo systemctl daemon-reload');
-            await execAsync(`sudo systemctl start ${serviceName}`).catch(() => {});
+            await execAsync(`${sudoPrefix}systemctl daemon-reload`);
+            await execAsync(`${sudoPrefix}systemctl start ${serviceName}`).catch(() => {});
           } else {
-            await execAsync(`sudo /etc/init.d/${serviceName} start`).catch(() => {});
+            await execAsync(`${sudoPrefix}/etc/init.d/${serviceName} start`).catch(() => {});
           }
 
           // assert
@@ -296,9 +297,9 @@ describe('OS Service E2E Tests', () => {
 
           // act
           if (useSystemd) {
-            await execAsync(`sudo systemctl stop ${serviceName}`).catch(() => {});
+            await execAsync(`${sudoPrefix}systemctl stop ${serviceName}`).catch(() => {});
           } else {
-            await execAsync(`sudo /etc/init.d/${serviceName} stop`).catch(() => {});
+            await execAsync(`${sudoPrefix}/etc/init.d/${serviceName} stop`).catch(() => {});
             // wait for service to fully stop
             await setTimeout(2000);
           }
@@ -315,9 +316,9 @@ describe('OS Service E2E Tests', () => {
           // act
           // ensure service is stopped before removal
           if (useSystemd) {
-            await execAsync(`sudo systemctl stop ${SERVICE_NAME}`).catch(() => {});
+            await execAsync(`${sudoPrefix}systemctl stop ${SERVICE_NAME}`).catch(() => {});
           } else {
-            await execAsync(`sudo /etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
+            await execAsync(`${sudoPrefix}/etc/init.d/${SERVICE_NAME} stop`).catch(() => {});
             await setTimeout(1000);
           }
 
@@ -326,11 +327,11 @@ describe('OS Service E2E Tests', () => {
           } catch {
             // if periodic-logger fails, try manual cleanup
             if (useSystemd) {
-              await execAsync(`sudo systemctl disable ${SERVICE_NAME}`).catch(() => {});
-              await execAsync(`sudo rm -f ${systemdPath}`).catch(() => {});
+              await execAsync(`${sudoPrefix}systemctl disable ${SERVICE_NAME}`).catch(() => {});
+              await execAsync(`${sudoPrefix}rm -f ${systemdPath}`).catch(() => {});
             } else {
-              await execAsync(`sudo update-rc.d ${SERVICE_NAME} remove`).catch(() => {});
-              await execAsync(`sudo rm -f ${initPath}`).catch(() => {});
+              await execAsync(`${sudoPrefix}update-rc.d ${SERVICE_NAME} remove`).catch(() => {});
+              await execAsync(`${sudoPrefix}rm -f ${initPath}`).catch(() => {});
             }
           }
 
