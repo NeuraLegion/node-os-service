@@ -4,7 +4,7 @@ const os = require('os');
 const {join, resolve, dirname} = require('path')
 const {exec} = require('child_process')
 const {build} = require('plist')
-const {stat, unlink, exists, mkdir, writeFile} = require('fs')
+const {stat, unlink, mkdir, writeFile} = require('fs')
 
 const platform = os.platform();
 const homedir = os.homedir();
@@ -239,28 +239,18 @@ function add(name, options, cb) {
 
 		const data = build(tpl).toString();
 
-		const createPlist = function (path, data, cb) {
-			writeFile(path, data, function (err) {
+		mkdir(dirname(plist), {recursive: true}, function (err) {
+			if (err) {
+				return cb(err);
+			}
+
+			writeFile(plist, data, function (err) {
 				if (err) {
 					return cb(err);
 				}
 
 				cb();
 			});
-		}
-
-		exists(dirname(plist), function (exists) {
-			if (!exists) {
-				mkdir(dirname(plist), {recursive: true}, function (err) {
-					if (err) {
-						return cb(err);
-					}
-
-					createPlist(plist, data, cb);
-				})
-			} else {
-				createPlist(plist, data, cb);
-			}
 		});
 	} else {
 		let runLevels = [2, 3, 4, 5];

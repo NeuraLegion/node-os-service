@@ -125,7 +125,7 @@ void InitAll (Local<Object> exports) {
 	Nan::Set(exports, Nan::New("stop").ToLocalChecked(), Nan::GetFunction(Nan::New<FunctionTemplate>(Stop)).ToLocalChecked());
 }
 
-NODE_MODULE(service, InitAll)
+NAN_MODULE_WORKER_ENABLED(service, InitAll)
 
 NAN_METHOD(Add) {
 	Nan::HandleScope scope;
