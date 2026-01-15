@@ -12,11 +12,12 @@ permissions:
   contents: read
 
 jobs:
-  test-windows:
-    runs-on: windows-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [20, 22, 23, 24]
     steps:
       - uses: actions/checkout@v4
@@ -29,156 +30,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Add service
-        run: node example/periodic-logger.js --add test-service
+      - name: Ensure systemd directory exists (Linux)
+        if: runner.os == 'Linux'
+        run: sudo mkdir -p /usr/lib/systemd/system
 
-      - name: Check service exists
-        run: sc query test-service
-
-      - name: Start service
-        run: sc start test-service
-
-      - name: Check service is running
-        run: |
-          $service = Get-Service -Name "test-service"
-          if ($service.Status -ne "Running") {
-            throw "Service is not running"
-          }
-        shell: pwsh
-
-      - name: Stop service
-        if: always()
-        run: sc stop test-service || true
-        shell: cmd
-
-      - name: Remove service
-        if: always()
-        run: node example/periodic-logger.js --remove test-service || true
-        shell: cmd
-
-  test-macos:
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [20, 22, 23, 24]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Add service
-        run: node example/periodic-logger.js --add test-service
-
-      - name: Check service plist exists
-        run: |
-          PLIST_PATH="$HOME/Library/LaunchAgents/test-service.plist"
-          if [ ! -f "$PLIST_PATH" ]; then
-            echo "Service plist not found at $PLIST_PATH"
-            exit 1
-          fi
-          echo "Service plist found:"
-          cat "$PLIST_PATH"
-
-      - name: Load and start service
-        run: launchctl load ~/Library/LaunchAgents/test-service.plist
-
-      - name: Check service is running
-        run: |
-          sleep 2
-          if launchctl list | grep -q "test-service"; then
-            echo "Service is registered with launchd"
-          else
-            echo "Warning: Service may not be fully running"
-          fi
-
-      - name: Unload service
-        if: always()
-        run: launchctl unload ~/Library/LaunchAgents/test-service.plist || true
-
-      - name: Remove service
-        if: always()
-        run: node example/periodic-logger.js --remove test-service || true
-
-  test-linux-systemd:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [20, 22, 23, 24]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify systemd is available
-        run: |
-          if [ -d "/usr/lib/systemd/system" ]; then
-            echo "systemd directory exists"
-          else
-            echo "Creating systemd directory for test"
-            sudo mkdir -p /usr/lib/systemd/system
-          fi
-
-      - name: Add service (systemd)
-        run: sudo node example/periodic-logger.js --add test-service
-
-      - name: Check service unit file exists
-        run: |
-          if [ -f "/usr/lib/systemd/system/test-service.service" ]; then
-            echo "Systemd unit file found:"
-            cat /usr/lib/systemd/system/test-service.service
-          else
-            echo "Systemd unit file not found"
-            exit 1
-          fi
-
-      - name: Reload systemd daemon
-        run: sudo systemctl daemon-reload
-
-      - name: Check service is enabled
-        run: sudo systemctl is-enabled test-service
-
-      - name: Start service
-        run: sudo systemctl start test-service
-
-      - name: Check service status
-        run: |
-          sudo systemctl status test-service || true
-          if sudo systemctl is-active --quiet test-service; then
-            echo "Service is running"
-          else
-            echo "Service failed to start, checking logs..."
-            sudo journalctl -u test-service --no-pager -n 50
-          fi
-
-      - name: Stop service
-        if: always()
-        run: sudo systemctl stop test-service || true
-
-      - name: Remove service
-        if: always()
-        run: sudo node example/periodic-logger.js --remove test-service || true
-
-      - name: Verify cleanup
-        if: always()
-        run: |
-          if [ -f "/usr/lib/systemd/system/test-service.service" ]; then
-            echo "Warning: Service file still exists"
-            sudo rm -f /usr/lib/systemd/system/test-service.service
-          fi
+      - name: Run tests
+        run: npm test
+        shell: bash
 
   test-linux-initd:
     runs-on: ubuntu-latest
@@ -197,52 +55,11 @@ jobs:
           apt-get update
           apt-get install -y sysvinit-utils procps git
 
-      - name: Remove systemd directory to force init.d usage
+      - name: Remove systemd to force init.d usage
         run: rm -rf /usr/lib/systemd/system /etc/systemd
 
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Add service (init.d)
-        run: node example/periodic-logger.js --add test-service
-
-      - name: Check init.d script exists
-        run: |
-          if [ -f "/etc/init.d/test-service" ]; then
-            echo "Init.d script found:"
-            cat /etc/init.d/test-service
-          else
-            echo "Init.d script not found"
-            exit 1
-          fi
-
-      - name: Check init.d script is executable
-        run: |
-          if [ -x "/etc/init.d/test-service" ]; then
-            echo "Init.d script is executable"
-          else
-            echo "Init.d script is not executable"
-            exit 1
-          fi
-
-      - name: Start service via init.d
-        run: /etc/init.d/test-service start || true
-
-      - name: Check service status
-        run: /etc/init.d/test-service status || echo "Service status check completed"
-
-      - name: Stop service
-        if: always()
-        run: /etc/init.d/test-service stop || true
-
-      - name: Remove service
-        if: always()
-        run: node example/periodic-logger.js --remove test-service || true
-
-      - name: Verify cleanup
-        if: always()
-        run: |
-          if [ -f "/etc/init.d/test-service" ]; then
-            echo "Warning: Init.d script still exists"
-            rm -f /etc/init.d/test-service
-          fi
+      - name: Run tests (init.d)
+        run: npm test
