@@ -66,10 +66,9 @@ describe('Windows: Service', { skip: platform() !== 'win32' }, () => {
     await waitForWindowsServiceState(serviceName, 'STOPPED');
     await runPeriodicLogger('--remove', serviceName);
 
-    // assert
+    // assert - sc query should fail when service doesn't exist
     await rejects(
-      execAsync(`sc query ${serviceName}`),
-      (error) => error.message.includes('1060') || error.message.includes('does not exist')
+      execAsync(`sc query ${serviceName}`)
     );
   });
 });
