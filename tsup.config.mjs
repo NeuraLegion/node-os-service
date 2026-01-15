@@ -1,8 +1,9 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['lib/index.mjs'],
-  format: ['cjs', 'esm'],
+  target: 'node20',
+  entry: ['index.mjs'],
+  format: ['cjs'],
   outDir: '.',
   splitting: false,
   sourcemap: false,

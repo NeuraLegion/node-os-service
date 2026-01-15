@@ -176,7 +176,7 @@ const linuxSystemUnit = [
 
 function getServiceWrap() {
 	if (!serviceWrap) {
-		serviceWrap = require('node-gyp-build')(resolve(__dirname, '..'));
+		serviceWrap = require('node-gyp-build')(__dirname);
 	}
 
 	return serviceWrap;

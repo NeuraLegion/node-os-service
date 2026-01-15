@@ -4,4 +4,3 @@ build
 node_modules/
 example/*.log
 /index.js
-/index.mjs

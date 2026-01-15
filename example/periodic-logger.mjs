@@ -2,7 +2,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
 import { promisify } from 'node:util';
-import { add as addCb, disable as disableCb, remove as removeCb, stop, run, enable as enableCb } from '../lib/index.mjs';
+import { add as addCb, disable as disableCb, remove as removeCb, stop, run, enable as enableCb } from '../index.mjs';
 
 const add = promisify(addCb);
 const enable = promisify(enableCb);
