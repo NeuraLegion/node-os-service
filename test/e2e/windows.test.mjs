@@ -7,7 +7,7 @@ import {
   execAsync,
   waitForWindowsServiceState,
   runPeriodicLogger
-} from './helpers.js';
+} from './helpers.mjs';
 
 async function cleanup() {
   try {

@@ -9,7 +9,7 @@ import {
   execAsync,
   fileExists,
   runPeriodicLogger
-} from './helpers.js';
+} from './helpers.mjs';
 
 const plistPath = join(homedir(), 'Library/LaunchAgents', `${SERVICE_NAME}.plist`);
 

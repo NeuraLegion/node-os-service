@@ -52,7 +52,7 @@ export async function waitForWindowsServiceState(serviceName, expectedState, max
 }
 
 export async function runPeriodicLogger(...args) {
-  const scriptPath = join(import.meta.dirname, '../../example/periodic-logger.js');
+  const scriptPath = join(import.meta.dirname, '../../example/periodic-logger.mjs');
   const { stdout, stderr } = await execAsync(`${sudoPrefix}node ${scriptPath} ${args.join(' ')}`);
   return { stdout, stderr };
 }

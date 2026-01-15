@@ -1,12 +1,14 @@
-'use strict';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createWriteStream } from 'node:fs';
+import { add, disable, remove, stop, run, enable } from '../lib/index.mjs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  ** Change to the examples directory so this program can run as a service.
  **/
 process.chdir(__dirname);
-
-const service = require('../');
-const { createWriteStream } = require('node:fs');
 
 function usage() {
   console.log(
@@ -23,7 +25,7 @@ process.title = name;
 
 if (command === '--add' && name) {
   const options = {
-    args: [process.argv[1], '--run', 'me']
+    args: [process.argv[1], '--run', 'me'],
   };
 
   const [username, password, ...dependencies] = rest;
@@ -32,32 +34,32 @@ if (command === '--add' && name) {
   if (password) options.password = password;
   if (dependencies.length) options.dependencies = dependencies;
 
-  service.add(name, options, (error) => {
+  add(name, options, (error) => {
     if (error) {
       return console.error(error);
     }
 
-    service.enable(name, (error) => {
+    enable(name, (error) => {
       if (error) {
         console.error(error);
       }
     });
   });
 } else if (command === '--remove' && name) {
-  service.disable(name, (error) => {
+  disable(name, (error) => {
     if (error) {
       return console.error(error);
     }
 
-    service.remove(name, (error) => {
+    remove(name, (error) => {
       if (error) {
         console.error(error);
       }
     });
   });
 } else if (command === '--run') {
-  service.run(() => {
-    service.stop(0);
+  run(() => {
+    stop(0);
   });
 
   const logStream = createWriteStream(process.argv[1] + '.log');

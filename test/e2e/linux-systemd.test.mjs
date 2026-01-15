@@ -10,7 +10,7 @@ import {
   fileExists,
   hasSystemd,
   runPeriodicLogger
-} from './helpers.js';
+} from './helpers.mjs';
 
 const systemdPath = `/usr/lib/systemd/system/${SERVICE_NAME}.service`;
 

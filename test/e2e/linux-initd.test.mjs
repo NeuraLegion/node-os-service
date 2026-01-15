@@ -11,7 +11,7 @@ import {
   isExecutable,
   hasSystemd,
   runPeriodicLogger
-} from './helpers.js';
+} from './helpers.mjs';
 
 const initPath = `/etc/init.d/${SERVICE_NAME}`;
 
