@@ -16,20 +16,16 @@ jobs:
       matrix:
         include:
           - os: windows-2019
-            node_arch: x86
-            command: build:gyp
-          - os: windows-2019
             node_arch: x64
             command: build:gyp
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TARGET_REF }}
-          token: ${{ secrets.GPR_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           architecture: ${{ matrix.node_arch }}
 
       - name: Install dependencies
@@ -57,15 +53,18 @@ jobs:
   deploy:
     needs: merge
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TARGET_REF }}
-          token: ${{ secrets.GPR_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
       - uses: actions/download-artifact@v4
@@ -77,17 +76,15 @@ jobs:
         run: npm ci
 
       - name: Publish to npm
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: 'https://npm.pkg.github.com'
           scope: '@NeuraLegion'
 
       - name: Publish to GPR
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GPR_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
