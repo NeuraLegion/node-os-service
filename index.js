@@ -1,10 +1,13 @@
 'use strict';
 
 const os = require('os');
-const {join, resolve, dirname} = require('path')
-const {exec} = require('child_process')
-const {build} = require('plist')
-const {stat, unlink, mkdir, writeFile} = require('fs')
+const {join, resolve, dirname} = require('path');
+const {exec: execCb} = require('child_process');
+const {promisify, callbackify} = require('util');
+const {build} = require('plist');
+const {stat, unlink, mkdir, writeFile} = require('fs/promises');
+
+const exec = promisify(execCb);
 
 const platform = os.platform();
 const homedir = os.homedir();
@@ -174,28 +177,16 @@ function getServiceWrap() {
 	return serviceWrap;
 }
 
-function add(name, options, cb) {
-	if (!cb) {
-		cb = arguments[1];
-		options = {};
-	}
+async function addAsync(name, options = {}) {
+	const command = options.command ?? process.execPath;
+	const cwd = command ? dirname(command) : homedir;
+	const username = options.username ?? null;
+	const password = options.password ?? null;
 
-	const command =
-		options && options.command ? options.command : process.execPath;
+	const serviceArgs = [command];
 
-	const cwd = command ? dirname(command) : homedir
-
-	const username = options ? options.username || null : null;
-	const password = options ? options.password || null : null;
-
-	const serviceArgs = [];
-
-	serviceArgs.push(command);
-
-	if (options && options.args) {
-		for (let i = 0; i < options.args.length; i++) {
-			serviceArgs.push(options.args[i]);
-		}
+	if (options.args) {
+		serviceArgs.push(...options.args);
 	}
 
 	if (platform !== 'darwin') {
@@ -205,28 +196,22 @@ function add(name, options, cb) {
 	}
 
 	const servicePath = serviceArgs.join(' ');
-	const displayName =
-		options && options.displayName ? options.displayName : name;
+	const displayName = options.displayName ?? name;
 
-	if (platform == 'win32') {
+	if (platform === 'win32') {
 		const deps = options.dependencies ? options.dependencies.join('\0') + '\0\0' : '';
 
-		try {
-			getServiceWrap().add(
-				name,
-				displayName,
-				servicePath,
-				username,
-				password,
-				deps
-			);
-			cb();
-		} catch (error) {
-			cb(error);
-		}
-	} else if (platform == 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents')
-		const plist = resolve(join(root, name + '.plist'))
+		getServiceWrap().add(
+			name,
+			displayName,
+			servicePath,
+			username,
+			password,
+			deps
+		);
+	} else if (platform === 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents');
+		const plist = resolve(join(root, name + '.plist'));
 
 		const tpl = {
 			Title: displayName,
@@ -235,132 +220,88 @@ function add(name, options, cb) {
 			RunAtLoad: true,
 			KeepAlive: true,
 			WorkingDirectory: cwd
-		}
+		};
 
 		const data = build(tpl).toString();
 
-		mkdir(dirname(plist), {recursive: true}, function (err) {
-			if (err) {
-				return cb(err);
-			}
-
-			writeFile(plist, data, function (err) {
-				if (err) {
-					return cb(err);
-				}
-
-				cb();
-			});
-		});
+		await mkdir(dirname(plist), {recursive: true});
+		await writeFile(plist, data);
 	} else {
-		let runLevels = [2, 3, 4, 5];
-		if (options && options.runLevels) {
-			runLevels = options.runLevels;
-		}
-
-		const deps =
-			options && options.dependencies ? options.dependencies.join(' ') : '';
-
+		const runLevels = options.runLevels ?? [2, 3, 4, 5];
+		const deps = options.dependencies ? options.dependencies.join(' ') : '';
 		const initPath = join('/etc/init.d/', name);
 		const systemPath = join('/usr/lib/systemd/system/', name + '.service');
-		const ctlOptions = {
-			mode: 493 // rwxr-xr-x
-		};
+		const ctlOptions = {mode: 493}; // rwxr-xr-x
 
-		stat('/usr/lib/systemd/system', function (error) {
-			if (error) {
-				if (error.code == 'ENOENT') {
-					const startStopScript = [];
-
-					for (let i = 0; i < linuxStartStopScript.length; i++) {
-						let line = linuxStartStopScript[i];
-
-						line = line.replace('##NAME##', name);
-						line = line.replace('##COMMAND##', servicePath);
-						line = line.replace('##RUN_LEVELS_ARR##', runLevels.join(' '));
-						line = line.replace('##RUN_LEVELS_STR##', runLevels.join(''));
-						line = line.replace('##DEPENDENCIES##', deps);
-						line = line.replace('##CWD##', cwd);
-
-						startStopScript.push(line);
-					}
-
-					const startStopScriptStr = startStopScript.join('\n');
-
-					writeFile(initPath, startStopScriptStr, ctlOptions, function (error) {
-						if (error) {
-							cb(
-								new Error(
-									'writeFile(' + initPath + ') failed: ' + error.message
-								)
-							);
-						} else {
-							exec('chkconfig --add ' + name, function (error) {
-								if (error) {
-									if (error.code == 'ENOENT') {
-										exec('update-rc.d ' + name + ' defaults', function (error) {
-											if (error) {
-												cb(new Error('update-rd.d failed: ' + error.message));
-											} else {
-												cb();
-											}
-										});
-									} else {
-										cb(new Error('chkconfig failed: ' + error.message));
-									}
-								} else {
-									cb();
-								}
-							});
-						}
-					});
-				} else {
-					cb(
-						new Error('stat(/usr/lib/systemd/system) failed: ' + error.message)
-					);
-				}
+		let useSystemd = true;
+		try {
+			await stat('/usr/lib/systemd/system');
+		} catch (error) {
+			if (error.code === 'ENOENT') {
+				useSystemd = false;
 			} else {
-				const systemUnit = [];
-
-				let systemdWantedBy = 'multi-user.target';
-				if (options && options.systemdWantedBy) {
-					systemdWantedBy = options.systemdWantedBy;
-				}
-
-				for (let i = 0; i < linuxSystemUnit.length; i++) {
-					let line = linuxSystemUnit[i]
-
-					line = line.replace('##NAME##', name);
-					line = line.replace('##COMMAND##', servicePath);
-					line = line.replace('##SYSTEMD_WANTED_BY##', systemdWantedBy);
-					line = line.replace('##DEPENDENCIES##', deps);
-					line = line.replace('##CWD##', cwd);
-
-					systemUnit.push(line);
-				}
-
-				const systemUnitStr = systemUnit.join('\n');
-
-				writeFile(systemPath, systemUnitStr, ctlOptions, function (error) {
-					if (error) {
-						cb(
-							new Error(
-								'writeFile(' + systemPath + ') failed: ' + error.message
-							)
-						);
-					} else {
-						exec('systemctl enable ' + name, function (error) {
-							if (error) {
-								cb(new Error('systemctl failed: ' + error.message));
-							} else {
-								cb();
-							}
-						});
-					}
-				});
+				throw new Error('stat(/usr/lib/systemd/system) failed: ' + error.message);
 			}
-		});
+		}
+
+		if (useSystemd) {
+			const systemdWantedBy = options.systemdWantedBy ?? 'multi-user.target';
+
+			const systemUnit = linuxSystemUnit.map(line =>
+				line
+					.replace('##NAME##', name)
+					.replace('##COMMAND##', servicePath)
+					.replace('##SYSTEMD_WANTED_BY##', systemdWantedBy)
+					.replace('##DEPENDENCIES##', deps)
+					.replace('##CWD##', cwd)
+			);
+
+			await writeFile(systemPath, systemUnit.join('\n'), ctlOptions);
+
+			try {
+				await exec('systemctl enable ' + name);
+			} catch (error) {
+				throw new Error('systemctl failed: ' + error.message);
+			}
+		} else {
+			const startStopScript = linuxStartStopScript.map(line =>
+				line
+					.replace('##NAME##', name)
+					.replace('##COMMAND##', servicePath)
+					.replace('##RUN_LEVELS_ARR##', runLevels.join(' '))
+					.replace('##RUN_LEVELS_STR##', runLevels.join(''))
+					.replace('##DEPENDENCIES##', deps)
+					.replace('##CWD##', cwd)
+			);
+
+			await writeFile(initPath, startStopScript.join('\n'), ctlOptions);
+
+			try {
+				await exec('chkconfig --add ' + name);
+			} catch (error) {
+				if (error.code === 'ENOENT') {
+					try {
+						await exec('update-rc.d ' + name + ' defaults');
+					} catch (updateError) {
+						throw new Error('update-rc.d failed: ' + updateError.message);
+					}
+				} else {
+					throw new Error('chkconfig failed: ' + error.message);
+				}
+			}
+		}
 	}
+}
+
+const addCb = callbackify(addAsync);
+
+function add(name, options, cb) {
+	if (typeof options === 'function') {
+		cb = options;
+		options = {};
+	}
+
+	addCb(name, options, cb);
 
 	return this;
 }
@@ -369,93 +310,81 @@ function isStopRequested() {
 	return getServiceWrap().isStopRequested();
 }
 
-function remove(name, cb) {
-	if (platform == 'win32') {
+async function removeAsync(name) {
+	if (platform === 'win32') {
+		getServiceWrap().remove(name);
+	} else if (platform === 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents');
+		const plist = resolve(join(root, name + '.plist'));
+
 		try {
-			getServiceWrap().remove(name);
-			cb();
+			await unlink(plist);
 		} catch (error) {
-			cb(error);
+			throw new Error('launchd failed: ' + error.message);
 		}
-	} else if (platform == 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents')
-		const plist = resolve(join(root, name + '.plist'))
-
-		unlink(plist, function (error) {
-			if (error) {
-				cb(new Error('launchd failed: ' + error.message));
-			}
-
-			cb();
-		});
 	} else {
 		const initPath = join('/etc/init.d/', name);
 		const systemDir = '/usr/lib/systemd/system';
 		const systemPath = join(systemDir, name + '.service');
 
-		function removeCtlPaths() {
-			unlink(initPath, function (error) {
-				if (error) {
-					if (error.code == 'ENOENT') {
-						unlink(systemPath, function (error) {
-							if (error) {
-								cb(
-									new Error(
-										'unlink(' + systemPath + ') failed: ' + error.message
-									)
-								);
-							} else {
-								cb();
-							}
-						});
-					} else {
-						cb(new Error('unlink(' + initPath + ') failed: ' + error.message));
+		async function removeCtlPaths() {
+			try {
+				await unlink(initPath);
+			} catch (error) {
+				if (error.code === 'ENOENT') {
+					try {
+						await unlink(systemPath);
+					} catch (unlinkError) {
+						throw new Error('unlink(' + systemPath + ') failed: ' + unlinkError.message);
 					}
 				} else {
-					cb();
+					throw new Error('unlink(' + initPath + ') failed: ' + error.message);
 				}
-			});
+			}
 		}
 
-		stat(systemDir, function (error) {
-			if (error) {
-				if (error.code == 'ENOENT') {
-					exec('chkconfig --del ' + name, function (error) {
-						if (error) {
-							if (error.code == 'ENOENT') {
-								exec('update-rc.d ' + name + ' remove', function (error) {
-									if (error) {
-										cb(new Error('update-rc.d failed: ' + error.message));
-									} else {
-										removeCtlPaths();
-									}
-								});
-							} else {
-								cb(new Error('chkconfig failed: ' + error.message));
-							}
-						} else {
-							removeCtlPaths();
-						}
-					});
-				} else {
-					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
-				}
+		let useSystemd = true;
+		try {
+			await stat(systemDir);
+		} catch (error) {
+			if (error.code === 'ENOENT') {
+				useSystemd = false;
 			} else {
-				exec('systemctl disable ' + name, function (error) {
-					if (error) {
-						cb(new Error('systemctl failed: ' + error.message));
-					} else {
-						removeCtlPaths();
-					}
-				});
+				throw new Error('stat(' + systemDir + ') failed: ' + error.message);
 			}
-		});
+		}
+
+		if (useSystemd) {
+			try {
+				await exec('systemctl disable ' + name);
+			} catch (error) {
+				throw new Error('systemctl failed: ' + error.message);
+			}
+			await removeCtlPaths();
+		} else {
+			try {
+				await exec('chkconfig --del ' + name);
+			} catch (error) {
+				if (error.code === 'ENOENT') {
+					try {
+						await exec('update-rc.d ' + name + ' remove');
+					} catch (updateError) {
+						throw new Error('update-rc.d failed: ' + updateError.message);
+					}
+				} else {
+					throw new Error('chkconfig failed: ' + error.message);
+				}
+			}
+			await removeCtlPaths();
+		}
 	}
 }
 
+const remove = callbackify(removeAsync);
+
 function run(stopCallback) {
 	if (!runInitialised) {
-		if (platform == 'win32') {
+		if (platform === 'win32') {
 			interval = setInterval(function () {
 				if (isStopRequested()) {
 					stopCallback();
@@ -474,120 +403,106 @@ function run(stopCallback) {
 		runInitialised = true;
 	}
 
-	if (platform == 'win32') {
+	if (platform === 'win32') {
 		getServiceWrap().run();
 	}
 }
 
 function stop(rcode) {
-	if (platform == 'win32') {
+	if (platform === 'win32') {
 		getServiceWrap().stop(rcode);
 	}
 
 	process.exit(rcode || 0);
 }
 
-function enable(name, cb) {
-	if (platform == 'win32') {
+async function enableAsync(name) {
+	if (platform === 'win32') {
 		clearInterval(interval);
 
-		exec('net start ' + name, {}, function (err) {
-			if (err) {
-				return cb(new Error('net start failed: ' + err.message))
-			}
+		try {
+			await exec('net start ' + name);
+		} catch (error) {
+			throw new Error('net start failed: ' + error.message);
+		}
+	} else if (platform === 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents');
+		const plist = resolve(join(root, name + '.plist'));
 
-			cb();
-		});
-	} else if (platform == 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents')
-		const plist = resolve(join(root, name + '.plist'))
-
-		exec('launchctl load ' + plist, {}, function (err) {
-			if (err) {
-				return cb(err)
-			}
-
-			cb();
-		});
+		await exec('launchctl load ' + plist);
 	} else {
 		const systemDir = '/usr/lib/systemd/system';
 
-		stat(systemDir, function (error) {
-			if (error) {
-				if (error.code == 'ENOENT') {
-					exec('service ' + name + ' start', function (error) {
-						if (error) {
-							cb(new Error('service failed: ' + error.message));
-						}
-
-						cb();
-					});
-				} else {
-					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
-				}
+		let useSystemd = true;
+		try {
+			await stat(systemDir);
+		} catch (error) {
+			if (error.code === 'ENOENT') {
+				useSystemd = false;
 			} else {
-				exec('systemctl start ' + name, function (error) {
-					if (error) {
-						cb(new Error('systemctl failed: ' + error.message));
-					}
-
-					cb();
-				});
+				throw new Error('stat(' + systemDir + ') failed: ' + error.message);
 			}
-		});
+		}
+
+		if (useSystemd) {
+			try {
+				await exec('systemctl start ' + name);
+			} catch (error) {
+				throw new Error('systemctl failed: ' + error.message);
+			}
+		} else {
+			try {
+				await exec('service ' + name + ' start');
+			} catch (error) {
+				throw new Error('service failed: ' + error.message);
+			}
+		}
 	}
 }
 
-function disable(name, cb) {
-	if (platform == 'win32') {
+const enable = callbackify(enableAsync);
+
+async function disableAsync(name) {
+	if (platform === 'win32') {
 		clearInterval(interval);
 
-		exec('net stop ' + name, {}, function (err) {
-			if (err) {
-				return cb(err)
-			}
+		await exec('net stop ' + name);
+	} else if (platform === 'darwin') {
+		const root = join(homedir, '/Library/LaunchAgents');
+		const plist = resolve(join(root, name + '.plist'));
 
-			cb();
-		});
-	} else if (platform == 'darwin') {
-		const root = join(homedir, '/Library/LaunchAgents')
-		const plist = resolve(join(root, name + '.plist'))
-
-		exec('launchctl unload ' + plist, {}, function (err) {
-			if (err) {
-				return cb(err)
-			}
-
-			cb();
-		});
+		await exec('launchctl unload ' + plist);
 	} else {
 		const systemDir = '/usr/lib/systemd/system';
 
-		stat(systemDir, function (error) {
-			if (error) {
-				if (error.code == 'ENOENT') {
-					exec('service ' + name + ' stop', function (error) {
-						if (error) {
-							cb(new Error('service failed: ' + error.message));
-						}
-
-						cb();
-					});
-				} else {
-					cb(new Error('stat(' + systemDir + ') failed: ' + error.message));
-				}
+		let useSystemd = true;
+		try {
+			await stat(systemDir);
+		} catch (error) {
+			if (error.code === 'ENOENT') {
+				useSystemd = false;
 			} else {
-				exec('systemctl disable ' + name, function (error) {
-					if (error) {
-						cb(new Error('systemctl failed: ' + error.message));
-					}
-
-					cb();
-				});
+				throw new Error('stat(' + systemDir + ') failed: ' + error.message);
 			}
-		});
+		}
+
+		if (useSystemd) {
+			try {
+				await exec('systemctl stop ' + name);
+			} catch (error) {
+				throw new Error('systemctl failed: ' + error.message);
+			}
+		} else {
+			try {
+				await exec('service ' + name + ' stop');
+			} catch (error) {
+				throw new Error('service failed: ' + error.message);
+			}
+		}
 	}
 }
+
+const disable = callbackify(disableAsync);
 
 exports.add = add;
 exports.remove = remove;
