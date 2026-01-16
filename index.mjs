@@ -254,11 +254,11 @@ async function addAsync(name, options = {}) {
 
 			const systemUnit = linuxSystemUnit.map(line =>
 				line
-					.replace('##NAME##', name)
-					.replace('##COMMAND##', servicePath)
-					.replace('##SYSTEMD_WANTED_BY##', systemdWantedBy)
-					.replace('##DEPENDENCIES##', deps)
-					.replace('##CWD##', cwd)
+					.replaceAll('##NAME##', name)
+					.replaceAll('##COMMAND##', servicePath)
+					.replaceAll('##SYSTEMD_WANTED_BY##', systemdWantedBy)
+					.replaceAll('##DEPENDENCIES##', deps)
+					.replaceAll('##CWD##', cwd)
 			);
 
 			await writeFile(systemPath, systemUnit.join('\n'), ctlOptions);
@@ -271,12 +271,12 @@ async function addAsync(name, options = {}) {
 		} else {
 			const startStopScript = linuxStartStopScript.map(line =>
 				line
-					.replace('##NAME##', name)
-					.replace('##COMMAND##', servicePath)
-					.replace('##RUN_LEVELS_ARR##', runLevels.join(' '))
-					.replace('##RUN_LEVELS_STR##', runLevels.join(''))
-					.replace('##DEPENDENCIES##', deps)
-					.replace('##CWD##', cwd)
+					.replaceAll('##NAME##', name)
+					.replaceAll('##COMMAND##', servicePath)
+					.replaceAll('##RUN_LEVELS_ARR##', runLevels.join(' '))
+					.replaceAll('##RUN_LEVELS_STR##', runLevels.join(''))
+					.replaceAll('##DEPENDENCIES##', deps)
+					.replaceAll('##CWD##', cwd)
 			);
 
 			await writeFile(initPath, startStopScript.join('\n'), ctlOptions);
