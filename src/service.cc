@@ -131,7 +131,7 @@ NAN_METHOD(Add) {
 	Nan::HandleScope scope;
 	
 	if (info.Length() < 3) {
-		Nan::ThrowError("At lease 3 arguments are required");
+		Nan::ThrowError("At least 3 arguments are required");
 		return;
 	}
 	
@@ -306,9 +306,9 @@ NAN_METHOD(Stop) {
 	
 	int rcode = 0;
 	
-	if (info.Length () > 1) {
+	if (info.Length () > 0) {
 		if (! info[0]->IsUint32 ()) {
-			Nan::ThrowTypeError("Name argument must be a string");
+			Nan::ThrowTypeError("Return code argument must be an unsigned integer");
 			return;
 		}
 		
