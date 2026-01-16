@@ -5,8 +5,8 @@ export default defineConfig({
   entry: ['index.mjs'],
   format: ['cjs'],
   outDir: 'dist',
-  splitting: false,
   sourcemap: true,
   clean: true,
-  shims: true
+  shims: true,
+  dts: false
 });
