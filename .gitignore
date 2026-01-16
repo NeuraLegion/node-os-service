@@ -3,4 +3,5 @@ syntax: glob
 build
 node_modules/
 example/*.log
-/index.js
+dist
+index.cjs*
