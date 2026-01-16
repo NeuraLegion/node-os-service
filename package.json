@@ -81,13 +81,13 @@
   "devDependencies": {
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
-    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^10.0.1",
     "husky": "^8.0.3",
     "is-ci": "^3.0.1",
     "prebuildify": "^6.0.1",
     "prebuildify-cross": "^5.1.1",
-    "semantic-release": "^23.0.8",
+    "semantic-release": "^25.0.2",
     "tsup": "^8.5.1"
   },
   "engines": {
