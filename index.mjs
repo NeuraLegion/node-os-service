@@ -182,7 +182,25 @@ function getServiceWrap() {
 	return serviceWrap;
 }
 
+// Validate service name to prevent command injection
+// Allowlist: only safe characters permitted
+// Allowed: letters, digits, space, hyphen, underscore, dot, at sign, forward slash
+const SAFE_SERVICE_NAME = /^[a-zA-Z0-9 \-_.\/@]+$/;
+
+function validateServiceName(name) {
+	if (typeof name !== 'string' || name.length === 0) {
+		throw new Error('Service name must be a non-empty string');
+	}
+	if (name.length > 256) {
+		throw new Error('Service name must be 256 characters or less');
+	}
+	if (!SAFE_SERVICE_NAME.test(name)) {
+		throw new Error('Service name contains invalid characters. Allowed: letters, digits, spaces, hyphens, underscores, dots, @ and /');
+	}
+}
+
 async function addAsync(name, options = {}) {
+	validateServiceName(name);
 	const command = options.command ?? process.execPath;
 	const cwd = command ? dirname(command) : rootdir;
 	const username = options.username ?? null;
@@ -303,8 +321,6 @@ export function add(name, options, cb) {
 	}
 
 	addCb(name, options, cb);
-
-	return this;
 }
 
 function isStopRequested() {
@@ -312,6 +328,8 @@ function isStopRequested() {
 }
 
 async function removeAsync(name) {
+	validateServiceName(name);
+
 	if (os === 'win32') {
 		getServiceWrap().remove(name);
 	} else if (os === 'darwin') {
@@ -414,6 +432,8 @@ export function stop(rcode) {
 }
 
 async function enableAsync(name) {
+	validateServiceName(name);
+
 	if (os === 'win32') {
 		clearInterval(interval);
 
@@ -460,6 +480,8 @@ async function enableAsync(name) {
 export const enable = callbackify(enableAsync);
 
 async function disableAsync(name) {
+	validateServiceName(name);
+
 	if (os === 'win32') {
 		clearInterval(interval);
 
