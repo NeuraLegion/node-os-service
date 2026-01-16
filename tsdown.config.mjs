@@ -4,9 +4,9 @@ export default defineConfig({
   target: 'node20',
   entry: ['index.mjs'],
   format: ['cjs'],
-  outDir: 'dist',
+  outDir: '.',
   sourcemap: true,
-  clean: true,
+  clean: false,
   shims: true,
   dts: false
 });
