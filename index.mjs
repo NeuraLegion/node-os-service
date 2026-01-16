@@ -183,8 +183,6 @@ function getServiceWrap() {
 }
 
 // Validate service name to prevent command injection
-// Allowlist: only safe characters permitted
-// Allowed: letters, digits, space, hyphen, underscore, dot, at sign, forward slash
 const SAFE_SERVICE_NAME = /^[a-zA-Z0-9 \-_.\/@]+$/;
 
 function validateServiceName(name) {
