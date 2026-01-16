@@ -382,17 +382,17 @@ export const remove = callbackify(removeAsync);
 export function run(stopCallback) {
 	if (!runInitialised) {
 		if (os === 'win32') {
-			interval = setInterval(function () {
+			interval = setInterval(() => {
 				if (isStopRequested()) {
 					stopCallback();
 				}
 			}, 2000);
 		} else {
-			process.once('SIGINT', function () {
+			process.once('SIGINT', () => {
 				stopCallback();
 			});
 
-			process.once('SIGTERM', function () {
+			process.once('SIGTERM', () => {
 				stopCallback();
 			});
 		}

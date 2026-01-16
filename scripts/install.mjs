@@ -16,7 +16,7 @@ if (platform() === 'win32') {
   });
 
   // Handle child process exit
-  npmProcess.on('exit', function (code, signal) {
+  npmProcess.on('exit', (code, signal) => {
     if (code !== null) {
       console.log(`Child process exited with code ${code}`);
     } else if (signal !== null) {
@@ -25,7 +25,7 @@ if (platform() === 'win32') {
   });
 
   // Handle child process errors
-  npmProcess.on('error', function (error) {
+  npmProcess.on('error', (error) => {
     console.error('Error occurred:', error);
   });
 
