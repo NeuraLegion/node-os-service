@@ -17,8 +17,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [20, 22, 23, 24]
+        # windows-latest (Server 2025 / VS 18) breaks the node-gyp VS detection
+        # bundled with older Node; pin to windows-2022 for legacy coverage.
+        os: [ubuntu-latest, macos-latest, windows-2022]
+        node-version: [20, 22, 23, 24, 25, 26]
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22, 23, 24]
+        node-version: [20, 22, 23, 24, 25, 26]
     steps:
       - uses: actions/checkout@v4
 
