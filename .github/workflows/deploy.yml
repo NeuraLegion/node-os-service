@@ -29,9 +29,18 @@ jobs:
           architecture: ${{ matrix.node_arch }}
 
       - name: Install dependencies
+        # Node 26's ThinLTO config makes node-gyp emit the lld-only
+        # /opt:lldltojobs that MSVC link.exe rejects (LNK1117); the install
+        # script source-builds the addon on Windows. Force LTO off.
+        env:
+          npm_config_enable_thin_lto: 'false'
+          npm_config_enable_lto: 'false'
         run: npm ci
 
       - name: Prebuild package
+        env:
+          npm_config_enable_thin_lto: 'false'
+          npm_config_enable_lto: 'false'
         run: npm run ${{ matrix.command }} -- ${{ matrix.args }}
 
       - uses: actions/upload-artifact@v4

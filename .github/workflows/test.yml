@@ -17,8 +17,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [20, 22, 23, 24]
+        # windows-latest (Server 2025 / VS 18) breaks the node-gyp VS detection
+        # bundled with older Node; pin to windows-2022 for legacy coverage.
+        os: [ubuntu-latest, macos-latest, windows-2022]
+        node-version: [20, 22, 23, 24, 25, 26]
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +30,12 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
+        # On Windows + Node 26 the install script source-builds the native
+        # addon; Node 26's ThinLTO config makes node-gyp emit the lld-only
+        # /opt:lldltojobs, which MSVC link.exe rejects (LNK1117). Force LTO off.
+        env:
+          npm_config_enable_thin_lto: 'false'
+          npm_config_enable_lto: 'false'
         run: npm ci
 
       - name: Ensure systemd directory exists (Linux)
@@ -46,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22, 23, 24]
+        node-version: [20, 22, 23, 24, 25, 26]
     steps:
       - uses: actions/checkout@v4
 
